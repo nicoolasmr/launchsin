@@ -19,7 +19,13 @@ import { IntegrationProvider, SourceConnection, SyncRun, DlqEvent, IntegrationAl
 import { logger } from './infra/structured-logger';
 import { handleHotmartWebhook } from './routes/webhooks/hotmart';
 import { startMetaOAuth, handleMetaOAuthCallback } from './routes/oauth/meta';
-import { triggerAlignmentCheck, getAlignmentReports } from './routes/alignment';
+import {
+    triggerAlignmentCheck,
+    getAlignmentReports,
+    getAlignmentReport,
+    getAlignmentSettings,
+    updateAlignmentSettings
+} from './routes/alignment';
 
 const router = Router();
 
@@ -34,8 +40,12 @@ router.get('/oauth/meta/callback', handleMetaOAuthCallback);
 router.use(authMiddleware);
 
 // Alignment Intelligence (ADMIN only)
-router.post('/projects/:projectId/integrations/:connectionId/alignment/check', requireOrgRole('admin'), triggerAlignmentCheck);
-router.get('/projects/:projectId/integrations/:connectionId/alignment/reports', getAlignmentReports);
+// Alignment Intelligence (ADMIN only for checks/settings, VIEWER for reports)
+router.post('/projects/:projectId/integrations/alignment/check', validateProjectAccess, requireOrgRole('admin'), triggerAlignmentCheck);
+router.get('/projects/:projectId/integrations/alignment/reports', validateProjectAccess, requireOrgRole('viewer'), getAlignmentReports);
+router.get('/projects/:projectId/integrations/alignment/reports/:reportId', validateProjectAccess, requireOrgRole('viewer'), getAlignmentReport);
+router.get('/projects/:projectId/integrations/alignment/settings', validateProjectAccess, requireOrgRole('viewer'), getAlignmentSettings);
+router.put('/projects/:projectId/integrations/alignment/settings', validateProjectAccess, requireOrgRole('admin'), updateAlignmentSettings);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {

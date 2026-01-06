@@ -2,168 +2,229 @@ import { Request, Response } from 'express';
 import { supabase } from '../infra/db';
 import { logger } from '../infra/structured-logger';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { alignmentEngine, AdCreative } from '../ai/alignment-engine';
+import { alignmentEngine, AdCreative, AlignmentReport } from '../ai/alignment-engine';
 import { pageScraper } from '../ai/page-scraper';
+import { alignmentSettingsService } from '../services/alignment-settings';
 import { MetaAdsConnector } from '../integrations/connectors/meta-ads';
 
 /**
  * Alignment Intelligence Routes
- * 
- * POST /api/projects/:projectId/integrations/:connectionId/alignment/check
- * GET /api/projects/:projectId/integrations/:connectionId/alignment/reports
  */
 
 /**
- * Trigger alignment check for a connection
- * POST /api/projects/:projectId/integrations/:connectionId/alignment/check
+ * Trigger alignment check (Manual)
+ * POST /api/projects/:projectId/integrations/alignment/check
+ * Note: connectionId is optional if ad_id provides enough context or if testing
  */
 export async function triggerAlignmentCheck(
     req: AuthenticatedRequest,
     res: Response
 ): Promise<void> {
-    const { projectId, connectionId } = req.params;
-    const { ad_id } = req.body;
+    const { projectId } = req.params;
+    const { ad_id, landing_url, connection_id } = req.body;
+    const { tenant_id } = req.user!;
+
+    if (!landing_url) {
+        res.status(400).json({ error: 'landing_url is required' });
+        return;
+    }
 
     try {
-        // Verify connection
-        const { data: connection, error: connError } = await supabase
-            .from('source_connections')
-            .select('id, org_id, project_id, type, config_json')
-            .eq('id', connectionId)
-            .eq('project_id', projectId)
-            .single();
-
-        if (connError || !connection) {
-            res.status(404).json({ error: 'Connection not found' });
-            return;
+        // 1. Check permissions & settings
+        const settings = await alignmentSettingsService.getSettings(projectId);
+        if (settings && !settings.enabled) {
+            // Allow manual checks even if disabled? Usually yes for testing.
+            // But let's log it.
+            logger.info('Manual alignment check triggers while disabled', { projectId });
         }
 
-        // Check feature flag
-        const { data: flagData } = await supabase
-            .from('feature_flags')
-            .select('enabled')
-            .eq('org_id', connection.org_id)
-            .eq('key', 'ads_pages_alignment')
-            .single();
-
-        if (!flagData?.enabled) {
-            res.status(403).json({ error: 'Feature not enabled for this organization' });
-            return;
-        }
-
-        // Fetch ad creative from Meta
-        const accessToken = await getAccessToken(connectionId);
-        const metaConnector = new MetaAdsConnector(accessToken);
-
-        // Get ad details (simplified - in production, fetch from Meta API)
+        // 2. Prepare Ad Data
+        // In a real scenario, we might fetch from connection if provided
         const ad: AdCreative = {
-            ad_id: ad_id,
-            ad_name: 'Sample Ad',
-            headline: 'Get 50% Off Today!',
-            body: 'Limited time offer. Sign up now and save.',
-            cta_text: 'Sign Up',
-            landing_url: 'https://example.com/offer?utm_source=meta'
+            ad_id: ad_id || `manual-${Date.now()}`,
+            ad_name: 'Manual Check Ad',
+            headline: req.body.headline,
+            body: req.body.body,
+            cta_text: req.body.cta_text,
+            landing_url: landing_url
         };
 
-        // Scrape landing page
-        const pageAnalysis = await pageScraper.scrapePage(ad.landing_url);
+        // 3. Scrape Page
+        const pageAnalysis = await pageScraper.scrapePage(landing_url);
 
-        // Run AI analysis
-        const report = await alignmentEngine.analyzeAlignment(ad, pageAnalysis);
-
-        // Save report
-        const reportId = await alignmentEngine.saveReport(
-            connection.org_id,
+        // 4. Run Analysis (Engine handles caching, cost checks, PII)
+        const report = await alignmentEngine.analyzeAlignment(
+            tenant_id,
             projectId,
-            connectionId,
+            ad,
+            pageAnalysis
+        );
+
+        // 5. Save Report (History)
+        // If connection_id is provided, link it
+        const reportId = await alignmentEngine.saveReport(
+            tenant_id,
+            projectId,
+            connection_id || null, // Allow null if ad-hoc
             ad,
             report
         );
 
-        logger.info('Alignment check completed', {
+        // 6. Log Run (Audit)
+        await supabase.from('alignment_runs').insert({
+            org_id: tenant_id,
             project_id: projectId,
-            connection_id: connectionId,
-            ad_id: ad_id,
-            score: report.score,
-            report_id: reportId
+            mode: 'manual',
+            status: 'success',
+            started_at: new Date().toISOString(),
+            finished_at: new Date().toISOString(),
+            checks_count: 1,
+            failures_count: 0,
+            cost_estimated: 0.03 // Approx cost for GPT-4 analysis
         });
 
         res.json({
             report_id: reportId,
             score: report.score,
-            issues: report.reasons.length,
-            top_issue: report.reasons[0]?.description
+            issues: report.reasons,
+            evidence: report.evidence,
+            source: report.source
         });
 
     } catch (error: any) {
-        logger.error('Alignment check failed', {
+        logger.error('Manual alignment check failed', {
             error: error.message,
-            project_id: projectId,
-            connection_id: connectionId
+            projectId,
+            ad_id
         });
+
+        // Log failed run
+        await supabase.from('alignment_runs').insert({
+            org_id: tenant_id,
+            project_id: projectId,
+            mode: 'manual',
+            status: 'failed',
+            last_error: error.message
+        });
+
+        if (error.message.includes('budget exceeded')) {
+            res.status(429).json({ error: 'Daily alignment budget exceeded' });
+            return;
+        }
+
         res.status(500).json({ error: 'Alignment check failed' });
     }
 }
 
 /**
- * Get alignment reports for a connection
- * GET /api/projects/:projectId/integrations/:connectionId/alignment/reports
+ * Get alignment reports
+ * GET /api/projects/:projectId/integrations/alignment/reports
  */
 export async function getAlignmentReports(
     req: AuthenticatedRequest,
     res: Response
 ): Promise<void> {
-    const { projectId, connectionId } = req.params;
-    const { limit = 20, min_score, max_score } = req.query;
+    const { projectId } = req.params;
+    const { limit = 20, min_score, ad_id } = req.query;
 
     try {
         let query = supabase
-            .from('alignment_reports')
+            .from('alignment_reports') // Assuming this table exists from previous sprints
             .select('*')
             .eq('project_id', projectId)
-            .eq('source_connection_id', connectionId)
             .order('created_at', { ascending: false })
-            .limit(parseInt(limit as string));
+            .limit(Number(limit));
 
         if (min_score) {
-            query = query.gte('score', parseInt(min_score as string));
+            query = query.gte('score', Number(min_score));
         }
 
-        if (max_score) {
-            query = query.lte('score', parseInt(max_score as string));
+        if (ad_id) {
+            query = query.eq('ad_id', ad_id);
         }
 
         const { data, error } = await query;
-
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
         res.json(data || []);
-
     } catch (error: any) {
-        logger.error('Failed to fetch alignment reports', {
-            error: error.message,
-            project_id: projectId
-        });
+        logger.error('Failed to fetch reports', { error, projectId });
         res.status(500).json({ error: 'Failed to fetch reports' });
     }
 }
 
 /**
- * Helper: Get access token from secret_refs
+ * Get specific alignment report
+ * GET /api/projects/:projectId/integrations/alignment/reports/:reportId
  */
-async function getAccessToken(connectionId: string): Promise<string> {
-    const secretKeyName = `meta_token_${connectionId}`;
-    const { data } = await supabase
-        .from('secret_refs')
-        .select('secret_id_ref')
-        .eq('key_name', secretKeyName)
-        .single();
+export async function getAlignmentReport(
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> {
+    const { projectId, reportId } = req.params;
 
-    if (!data) {
-        throw new Error('Access token not found');
+    try {
+        const { data, error } = await supabase
+            .from('alignment_reports')
+            .select('*')
+            .eq('project_id', projectId)
+            .eq('id', reportId)
+            .single();
+
+        if (error || !data) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+
+        res.json(data);
+    } catch (error: any) {
+        logger.error('Failed to fetch report details', { error, projectId, reportId });
+        res.status(500).json({ error: 'Failed to fetch report' });
+    }
+}
+
+/**
+ * Get alignment settings
+ * GET /api/projects/:projectId/integrations/alignment/settings
+ */
+export async function getAlignmentSettings(
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> {
+    const { projectId } = req.params;
+    const { tenant_id } = req.user!;
+
+    try {
+        const settings = await alignmentSettingsService.getOrCreateSettings(projectId, tenant_id);
+        res.json(settings);
+    } catch (error: any) {
+        logger.error('Failed to get alignment settings', { error, projectId });
+        res.status(500).json({ error: 'Failed to get settings' });
+    }
+}
+
+/**
+ * Update alignment settings
+ * PUT /api/projects/:projectId/integrations/alignment/settings
+ */
+export async function updateAlignmentSettings(
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> {
+    const { projectId } = req.params;
+    const updates = req.body;
+
+    // Basic validation
+    if (updates.cadence && !['daily', 'weekly'].includes(updates.cadence)) {
+        res.status(400).json({ error: 'Invalid cadence' });
+        return;
     }
 
-    return data.secret_id_ref; // In production, decrypt this
+    try {
+        const updated = await alignmentSettingsService.updateSettings(projectId, updates);
+        res.json(updated);
+    } catch (error: any) {
+        logger.error('Failed to update alignment settings', { error, projectId });
+        res.status(500).json({ error: 'Failed to update settings' });
+    }
 }
