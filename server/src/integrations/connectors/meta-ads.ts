@@ -187,6 +187,27 @@ export class MetaAdsConnector {
     }
 
     /**
+     * Fetch ALL active ads for an ad account directly
+     * Used for alignment checks to avoid traversing campaign -> adset -> ad
+     */
+    public async getAllActiveAds(adAccountId: string, limit: number = 50): Promise<MetaAd[]> {
+        try {
+            const response = await this.client.get(`/${adAccountId}/ads`, {
+                params: {
+                    fields: 'id,name,status,creative{id,title,body,image_url,call_to_action_type},adcreatives{object_story_spec}',
+                    filtering: [{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }],
+                    limit: limit
+                }
+            });
+
+            return response.data.data || [];
+        } catch (error: any) {
+            this.handleApiError(error, 'getAllActiveAds');
+            return [];
+        }
+    }
+
+    /**
      * Fetch insights for an ad account (daily aggregates)
      */
     public async getInsights(

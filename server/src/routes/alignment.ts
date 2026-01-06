@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { alignmentEngine, AdCreative, AlignmentReport } from '../ai/alignment-engine';
 import { pageScraper } from '../ai/page-scraper';
 import { alignmentSettingsService } from '../services/alignment-settings';
+import { alignmentOrchestrator } from '../services/alignment-orchestrator';
 import { MetaAdsConnector } from '../integrations/connectors/meta-ads';
 
 /**
@@ -227,4 +228,47 @@ export async function updateAlignmentSettings(
         logger.error('Failed to update alignment settings', { error, projectId });
         res.status(500).json({ error: 'Failed to update settings' });
     }
+}
+
+/**
+ * Trigger batch alignment check (Internal)
+ * POST /api/internal/alignment/project/:projectId/batch-run
+ */
+export async function triggerBatchAlignment(
+    req: Request,
+    res: Response
+): Promise<void> {
+    const { projectId } = req.params;
+    const { orgId } = req.body;
+
+    if (!orgId) {
+        res.status(400).json({ error: 'orgId required' });
+        return;
+    }
+
+    try {
+        await alignmentOrchestrator.runProjectBatch(projectId, orgId);
+        res.json({ status: 'completed', projectId });
+    } catch (error: any) {
+        logger.error('Batch alignment run failed', { error: error.message, projectId });
+        res.status(500).json({ error: 'Batch run failed' });
+    }
+}
+
+/**
+ * Helper: Get access token from secret_refs
+ */
+async function getAccessToken(connectionId: string): Promise<string> {
+    const secretKeyName = `meta_token_${connectionId}`;
+    const { data } = await supabase
+        .from('secret_refs')
+        .select('secret_id_ref')
+        .eq('key_name', secretKeyName)
+        .single();
+
+    if (!data) {
+        throw new Error('Access token not found');
+    }
+
+    return data.secret_id_ref;
 }

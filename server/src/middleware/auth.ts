@@ -38,9 +38,25 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
             role: 'admin'
         };
 
+
         next();
     } catch (error: any) {
         logger.error('Authentication failure', { error: error.message });
         res.status(401).json({ error: 'Invalid authentication token' });
     }
+};
+
+/**
+ * Middleware for internal service calls (e.g. from Workers)
+ */
+export const requireInternalKey = (req: Request, res: Response, next: NextFunction) => {
+    const internalKey = process.env.INTERNAL_API_KEY || 'dev-internal-key';
+    const headerKey = req.headers['x-internal-key'];
+
+    if (headerKey !== internalKey) {
+        logger.warn('Invalid internal key attempt', { ip: req.ip });
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    next();
 };

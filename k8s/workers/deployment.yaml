@@ -46,6 +46,15 @@ spec:
           value: "30000"
         - name: DLQ_BATCH_SIZE
           value: "20"
+        - name: ALIGNMENT_POLL_INTERVAL_MS
+          value: "300000" # 5 minutes
+        - name: INTERNAL_API_URL
+          value: "http://launchsin-server:3000/api"
+        - name: INTERNAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: internal-api-key
         resources:
           limits:
             cpu: "500m"

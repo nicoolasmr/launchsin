@@ -1,5 +1,6 @@
 import { AuditSyncJob } from './jobs/audit-sync';
 import { dlqWorker } from './jobs/dlq-worker';
+import { alignmentWorker } from './jobs/alignment-worker';
 import { logger } from './infra/structured-logger';
 
 /**
@@ -21,6 +22,7 @@ async function bootstrap() {
 
     // Start Polling Workers (Standalone loops)
     await dlqWorker.start();
+    await alignmentWorker.start();
 
     logger.info('All workers and polling loops active.');
 }

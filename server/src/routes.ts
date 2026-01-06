@@ -6,7 +6,7 @@ import {
     ProjectWhitelist,
     AuditLogWhitelist
 } from './shared/safe-dto';
-import { authMiddleware, AuthenticatedRequest } from './middleware/auth';
+import { authMiddleware, AuthenticatedRequest, requireInternalKey } from './middleware/auth';
 import { requireOrgRole, validateProjectAccess } from './middleware/rbac';
 import { integrationService } from './integrations/service';
 import {
@@ -24,7 +24,8 @@ import {
     getAlignmentReports,
     getAlignmentReport,
     getAlignmentSettings,
-    updateAlignmentSettings
+    updateAlignmentSettings,
+    triggerBatchAlignment
 } from './routes/alignment';
 
 const router = Router();
@@ -35,6 +36,9 @@ router.post('/webhooks/hotmart/:connectionId', handleHotmartWebhook);
 // OAuth flows (NO auth middleware - redirects)
 router.get('/oauth/meta/start', startMetaOAuth);
 router.get('/oauth/meta/callback', handleMetaOAuthCallback);
+
+// Internal Service Routes (Protected by Internal Key, No User Auth)
+router.post('/internal/alignment/project/:projectId/batch-run', requireInternalKey, triggerBatchAlignment);
 
 // Apply auth to all other routes
 router.use(authMiddleware);
