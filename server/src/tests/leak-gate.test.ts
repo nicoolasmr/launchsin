@@ -8,7 +8,20 @@
 import { toSafeDTO, ProjectWhitelist } from '../shared/safe-dto';
 
 describe('Security Leak Gate', () => {
-    const FORBIDDEN_WORDS = ['token', 'secret', 'key', 'authorization', 'password', 'encrypted_value'];
+    const FORBIDDEN_WORDS = [
+        'token',
+        'secret',
+        'key',
+        'authorization',
+        'password',
+        'encrypted_value',
+        'refresh_token',
+        'access_token',
+        'encryption_tag',
+        'encryption_iv',
+        'hottok'
+    ];
+
 
     const testObjects = [
         {
