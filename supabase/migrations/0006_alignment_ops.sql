@@ -213,6 +213,10 @@ CREATE POLICY alignment_cache_delete ON alignment_cache
 -- HELPER FUNCTIONS
 -- ============================================================================
 
+-- Drop existing functions to ensure idempotency
+DROP FUNCTION IF EXISTS get_project_alignment_summary(UUID);
+DROP FUNCTION IF EXISTS get_alignment_health_inputs(UUID);
+
 -- Function: Get project alignment summary (7-day metrics)
 CREATE OR REPLACE FUNCTION get_project_alignment_summary(p_project_id UUID)
 RETURNS TABLE (
@@ -273,6 +277,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- TRIGGERS
 -- ============================================================================
 
+-- Drop existing trigger function
+DROP FUNCTION IF EXISTS update_alignment_settings_updated_at() CASCADE;
+
 -- Trigger: Update updated_at on alignment_settings
 CREATE OR REPLACE FUNCTION update_alignment_settings_updated_at()
 RETURNS TRIGGER AS $$
@@ -290,6 +297,9 @@ CREATE TRIGGER trigger_alignment_settings_updated_at
 -- ============================================================================
 -- CLEANUP FUNCTION (for expired cache)
 -- ============================================================================
+
+-- Drop existing cleanup function
+DROP FUNCTION IF EXISTS cleanup_expired_alignment_cache();
 
 -- Function: Clean up expired cache entries
 CREATE OR REPLACE FUNCTION cleanup_expired_alignment_cache()
