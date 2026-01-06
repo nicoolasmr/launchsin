@@ -1,0 +1,255 @@
+openapi: 3.0.0
+info:
+  title: LaunchSin API
+  version: 0.1.0
+  description: Multi-tenant infrastructure API with RBAC and SafeDTO security.
+
+servers:
+  - url: http://localhost:3001/api
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Project:
+      type: object
+      required: [id, org_id, name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+    
+    AuditLog:
+      type: object
+      properties:
+        id: { type: string }
+        action: { type: string }
+        entity_type: { type: string }
+        entity_id: { type: string }
+        actor_user_id: { type: string }
+        created_at: { type: string }
+
+    Integration:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [hotmart, meta_ads, google_ads] }
+        name: { type: string }
+        is_active: { type: boolean }
+        health_score: { type: integer, minimum: 0, maximum: 100 }
+        last_sync_at: { type: string, format: date-time }
+
+    SyncRun:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string }
+        started_at: { type: string }
+        finished_at: { type: string }
+        error_message: { type: string }
+        stats: { type: object }
+
+    DlqEvent:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string }
+        error_message: { type: string }
+        retry_count: { type: integer }
+        created_at: { type: string }
+
+    IntegrationAlert:
+      type: object
+      properties:
+        id: { type: string }
+        severity: { type: string, enum: [critical, warning, info] }
+        message: { type: string }
+        is_resolved: { type: boolean }
+        created_at: { type: string }
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Server is live
+
+  /projects:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all projects in the current tenant
+      responses:
+        '200':
+          description: List of safe project objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Project' }
+
+  /projects/{projectId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+
+  /projects/{projectId}/integrations:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List integrations for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Integration' }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a new integration (Admin only)
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, name, config]
+              properties:
+                type: { type: string }
+                name: { type: string }
+                config: { type: object }
+                secrets: { type: object }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Integration' }
+
+  /projects/{projectId}/integrations/health:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Get health score for project integrations
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  score: { type: integer }
+                  status: { type: string }
+
+  /projects/{projectId}/integrations/runs:
+    get:
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SyncRun' }
+
+  /projects/{projectId}/integrations/dlq:
+    get:
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DlqEvent' }
+
+  /projects/{projectId}/integrations/alerts:
+    get:
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/IntegrationAlert' }
+
+  /projects/{projectId}/integrations/{id}/test:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Test an integration connection (Admin only)
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+
+  /audit-logs:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List recent audit logs for the organization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditLog' }

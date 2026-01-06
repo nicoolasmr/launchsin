@@ -1,0 +1,32 @@
+{
+  "name": "launchsin-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "workers"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:workers": "npm run dev --workspace=workers",
+    "build:client": "npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "build:workers": "npm run build --workspace=workers",
+    "check": "npm run check:client && npm run check:server && npm run check:workers",
+    "check:client": "cd client && npm run check",
+    "check:server": "cd server && npm run check",
+    "check:workers": "cd workers && npm run check",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "audit:pii": "node scripts/audit-pii.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

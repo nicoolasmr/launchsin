@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: launchsin-api
+  labels:
+    app: launchsin-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: launchsin-api
+  template:
+    metadata:
+      labels:
+        app: launchsin-api
+    spec:
+      containers:
+      - name: api
+        image: launchsin/api:latest
+        ports:
+        - containerPort: 3001
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: launchsin-api
+spec:
+  selector:
+    app: launchsin-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3001
+  type: ClusterIP

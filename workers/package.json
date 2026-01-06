@@ -1,0 +1,24 @@
+{
+    "name": "launchsin-workers",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc",
+        "check": "tsc --noEmit",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.89.0",
+        "bullmq": "^5.66.4",
+        "ioredis": "^5.9.0",
+        "pg": "^8.16.3",
+        "winston": "^3.11.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.20",
+        "@types/pg": "^8.16.0",
+        "tsx": "^4.7.1",
+        "typescript": "^5.3.3"
+    }
+}

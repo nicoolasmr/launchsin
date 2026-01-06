@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: launchsin-workers
+  labels:
+    app: launchsin-workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: launchsin-workers
+  template:
+    metadata:
+      labels:
+        app: launchsin-workers
+    spec:
+      containers:
+      - name: worker
+        image: launchsin/workers:latest
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: url
