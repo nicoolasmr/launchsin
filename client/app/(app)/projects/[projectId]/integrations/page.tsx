@@ -9,8 +9,9 @@ import { cn } from '@/lib/utils/cn';
 import { SyncRunsTab, SyncRun, DlqTab, DlqEvent } from '@/components/integrations/Tables';
 import { AlertsTab, IntegrationAlert } from '@/components/integrations/Alerts';
 import { SettingsTab, SourceConnection } from '@/components/integrations/Settings';
+import { AlignmentTab } from '@/components/integrations/Alignment';
 
-type TabId = 'overview' | 'runs' | 'dlq' | 'alerts' | 'settings';
+type TabId = 'overview' | 'runs' | 'dlq' | 'alerts' | 'alignment' | 'settings';
 
 export default function StatusCenterPage() {
     const { projectId } = useParams();
@@ -56,7 +57,29 @@ export default function StatusCenterPage() {
         ]);
 
         // MOCK: Feature Flag Check
-        setIsAlignmentEnabled(false); // Default false for now
+        setIsAlignmentEnabled(true); // Enabled for Sprint 1.3
+    };
+
+    const handleTriggerAlignmentCheck = async () => {
+        try {
+            // Trigger a sample manual check for demo purposes
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+            await fetch(`${apiUrl}/projects/${projectId}/integrations/alignment/check`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    landing_url: 'https://example.com/demo-landing', // Demo URL
+                    headline: 'Special Offer 50% Off',
+                    body: 'Get the best deals now.',
+                    cta_text: 'Shop Now'
+                })
+            });
+            // Ideally trigger refresh of tab data
+            // For now just log
+            console.log('Manual check triggered');
+        } catch (error) {
+            console.error('Failed to trigger check', error);
+        }
     };
 
     useEffect(() => {
@@ -69,6 +92,7 @@ export default function StatusCenterPage() {
 
     const tabs: { id: TabId; label: string; count?: number }[] = [
         { id: 'overview', label: 'Overview' },
+        { id: 'alignment', label: 'Alignment', count: isAlignmentEnabled ? 4 : 0 },
         { id: 'runs', label: 'Sync Runs' },
         { id: 'dlq', label: 'DLQ', count: dlq.filter(e => e.status === 'pending').length },
         { id: 'alerts', label: 'Alerts', count: alerts.length },
@@ -141,6 +165,7 @@ export default function StatusCenterPage() {
                 ) : (
                     <div className="animate-in slide-in-from-bottom-1 duration-500 fill-mode-both">
                         {activeTab === 'overview' && <OverviewView isAlignmentEnabled={isAlignmentEnabled} />}
+                        {activeTab === 'alignment' && <AlignmentTab projectId={projectId as string} onTriggerCheck={handleTriggerAlignmentCheck} />}
                         {activeTab === 'runs' && <SyncRunsTab data={runs} />}
                         {activeTab === 'dlq' && <DlqTab data={dlq} canManage={canManage} onRetry={(id: string) => console.log('Retry', id)} />}
                         {activeTab === 'alerts' && <AlertsTab data={alerts} />}
