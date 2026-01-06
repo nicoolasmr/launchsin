@@ -1,6 +1,5 @@
 import { supabase } from '../infra/db';
 import { logger } from '../infra/structured-logger';
-import { connectorRegistry } from './registry';
 import { secretsProvider } from '../security/secrets-provider';
 import {
     IntegrationProvider,
@@ -109,19 +108,6 @@ export class IntegrationService {
 
         if (error) throw error;
         return data as SourceConnection;
-    }
-
-    async testConnection(connectionId: string): Promise<{ success: boolean; message: string }> {
-        const { data: conn } = await supabase
-            .from('source_connections')
-            .select('*')
-            .eq('id', connectionId)
-            .single();
-
-        if (!conn) throw new Error('Connection not found');
-
-        const connector = connectorRegistry.getConnector(conn.type as IntegrationProvider);
-        return connector.testConnection(conn.config_json);
     }
 }
 

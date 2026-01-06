@@ -19,6 +19,7 @@ import { IntegrationProvider, SourceConnection, SyncRun, DlqEvent, IntegrationAl
 import { logger } from './infra/structured-logger';
 import { handleHotmartWebhook } from './routes/webhooks/hotmart';
 import { startMetaOAuth, handleMetaOAuthCallback } from './routes/oauth/meta';
+import { triggerAlignmentCheck, getAlignmentReports } from './routes/alignment';
 
 const router = Router();
 
@@ -31,6 +32,10 @@ router.get('/oauth/meta/callback', handleMetaOAuthCallback);
 
 // Apply auth to all other routes
 router.use(authMiddleware);
+
+// Alignment Intelligence (ADMIN only)
+router.post('/projects/:projectId/integrations/:connectionId/alignment/check', requireOrgRole('admin'), triggerAlignmentCheck);
+router.get('/projects/:projectId/integrations/:connectionId/alignment/reports', getAlignmentReports);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
@@ -146,15 +151,6 @@ router.get('/projects/:projectId/integrations/alerts', validateProjectAccess, as
     res.json((data as IntegrationAlert[] || []).map(toSafeAlertDTO));
 });
 
-// Test Connection (Admin)
-router.post('/projects/:projectId/integrations/:id/test', validateProjectAccess, requireOrgRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const result = await integrationService.testConnection(req.params.id);
-        res.json(result);
-    } catch (error: any) {
-        res.status(400).json({ error: error.message });
-    }
-});
 
 // --- Audit Logs ---
 router.get('/audit-logs', async (req: AuthenticatedRequest, res: Response) => {
