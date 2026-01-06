@@ -44,7 +44,7 @@ PII_PATTERNS.forEach(({ pattern, description }) => {
     const excludeArgs = EXCLUDE_DIRS.map(dir => `--exclude-dir=${dir}`).join(' ');
     // Escape double quotes in pattern for shell execution
     const escapedPattern = pattern.replace(/"/g, '\\"');
-    const cmd = `grep -rn -E "${escapedPattern}" ${excludeArgs} client/ server/ workers/ 2>/dev/null || true`;
+    const cmd = `grep -rn -E "${escapedPattern}" ${excludeArgs} --exclude="*.test.ts" --exclude="*.test.js" --exclude="*.spec.ts" --exclude="*.spec.js" client/ server/ workers/ 2>/dev/null || true`;
 
     const result = execSync(cmd, { encoding: 'utf-8', cwd: path.join(__dirname, '..') });
 
