@@ -1,0 +1,97 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=raw,value=staging
+
+      - name: Build and push Server Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+
+      - name: Extract metadata (Workers)
+        id: meta-workers
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/workers
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=raw,value=staging
+
+      - name: Build and push Workers Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: workers/Dockerfile
+          push: true
+          tags: ${{ steps.meta-workers.outputs.tags }}
+          labels: ${{ steps.meta-workers.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update Kustomize Image Tags
+        run: |
+          cd k8s/overlays/staging
+          kustomize edit set image launchsin/api=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:sha-${{ github.sha }}
+          kustomize edit set image launchsin/workers=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/workers:sha-${{ github.sha }}
+          cd ../../..
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Deploy to Staging
+        if: ${{ secrets.KUBECONFIG != '' }}
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl kustomize k8s/overlays/staging | kubectl apply -f -
+          kubectl rollout status deployment/launchsin-api -n staging

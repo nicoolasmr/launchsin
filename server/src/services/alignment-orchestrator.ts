@@ -16,6 +16,7 @@ import { alignmentEngine } from '../ai/alignment-engine';
 import { alignmentSettingsService } from './alignment-settings';
 import { pageScraper } from '../ai/page-scraper';
 import { MetaAdsConnector } from '../integrations/connectors/meta-ads';
+import { alignmentChecksTotal } from '../utils/metrics';
 
 export class AlignmentOrchestrator {
     /**
@@ -123,9 +124,11 @@ export class AlignmentOrchestrator {
                     );
 
                     checkedCount++;
+                    alignmentChecksTotal.inc({ project_id: connection.project_id, status: 'success', mode: 'scheduled' });
 
                 } catch (error: any) {
                     logger.error('Failed to process ad in batch', { ad_id: metaAd.id, error: error.message });
+                    alignmentChecksTotal.inc({ project_id: connection.project_id, status: 'error', mode: 'scheduled' });
                 }
             }
 

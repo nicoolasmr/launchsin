@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: launchsin-api-monitor
+  namespace: staging
+  labels:
+    release: prometheus # standard label for prom operator to pick up
+spec:
+  selector:
+    matchLabels:
+      app: launchsin-api
+  namespaceSelector:
+    matchNames:
+      - staging
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s

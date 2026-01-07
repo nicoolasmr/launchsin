@@ -5,7 +5,7 @@ metadata:
   labels:
     app: launchsin-workers
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: launchsin-workers
@@ -15,11 +15,56 @@ spec:
         app: launchsin-workers
     spec:
       containers:
-      - name: worker
+      - name: workers
         image: launchsin/workers:latest
+        imagePullPolicy: IfNotPresent
         env:
+        - name: NODE_ENV
+          value: "production"
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: db-secrets
-              key: url
+              name: launchsin-secrets
+              key: database-url
+        - name: SUPABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: launchsin-config
+              key: supabase-url
+        - name: SUPABASE_SERVICE_ROLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: supabase-service-key
+        - name: SECRETS_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: encryption-key
+        - name: DLQ_POLL_INTERVAL_MS
+          value: "30000"
+        - name: DLQ_BATCH_SIZE
+          value: "20"
+        - name: ALIGNMENT_POLL_INTERVAL_MS
+          value: "300000"
+        - name: INTERNAL_API_URL
+          value: "http://launchsin-server:3000/api"
+        - name: INTERNAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: internal-api-key
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - node
+          initialDelaySeconds: 10
+          periodSeconds: 30
