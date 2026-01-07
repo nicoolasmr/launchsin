@@ -7,11 +7,43 @@ const config: Config = {
         "./app/**/*.{js,ts,jsx,tsx,mdx}",
         "./design-system/**/*.{js,ts,jsx,tsx,mdx}",
     ],
+    darkMode: "class",
     theme: {
         extend: {
             colors: {
+                border: "var(--border)",
+                input: "var(--input)",
+                ring: "var(--ring)",
                 background: "var(--background)",
                 foreground: "var(--foreground)",
+                primary: {
+                    DEFAULT: "var(--primary)",
+                    foreground: "var(--primary-foreground)",
+                },
+                secondary: {
+                    DEFAULT: "var(--secondary)",
+                    foreground: "var(--secondary-foreground)",
+                },
+                destructive: {
+                    DEFAULT: "var(--destructive)",
+                    foreground: "var(--destructive-foreground)",
+                },
+                muted: {
+                    DEFAULT: "var(--muted)",
+                    foreground: "var(--muted-foreground)",
+                },
+                accent: {
+                    DEFAULT: "var(--accent)",
+                    foreground: "var(--accent-foreground)",
+                },
+                popover: {
+                    DEFAULT: "var(--popover)",
+                    foreground: "var(--popover-foreground)",
+                },
+                card: {
+                    DEFAULT: "var(--card)",
+                    foreground: "var(--card-foreground)",
+                },
                 brand: {
                     50: "#f0f9ff",
                     100: "#e0f2fe",
@@ -35,34 +67,22 @@ const config: Config = {
                     600: "#52525b",
                     700: "#3f3f46",
                     800: "#27272a",
-                    900: "#18181b", // Deep minimalist dark
+                    900: "#18181b",
                     950: "#09090b",
                 }
             },
-            spacing: {
-                'xs': '0.25rem',
-                'sm': '0.5rem',
-                'md': '1rem',
-                'lg': '1.5rem',
-                'xl': '2rem',
-                '2xl': '3rem',
-                '3xl': '4rem',
-            },
             borderRadius: {
-                'sm': '0.125rem',
-                'md': '0.375rem',
-                'lg': '0.5rem',
-                'xl': '0.75rem',
-                '2xl': '1rem',
-                'full': '9999px',
+                lg: "var(--radius)",
+                md: "calc(var(--radius) - 2px)",
+                sm: "calc(var(--radius) - 4px)",
             },
             boxShadow: {
                 'minimal': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                 'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
             },
             fontFamily: {
-                sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-                mono: ['var(--font-geist-mono)', 'monospace'],
+                sans: ['var(--font-inter)', 'system-ui', 'sans-serif'], // Sync with Inter variable in layout
+                mono: ['monospace'], // Placeholder
             },
         },
     },
