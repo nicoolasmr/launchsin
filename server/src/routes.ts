@@ -40,6 +40,36 @@ router.get('/oauth/meta/callback', handleMetaOAuthCallback);
 // Internal Service Routes (Protected by Internal Key, No User Auth)
 router.post('/internal/alignment/project/:projectId/batch-run', requireInternalKey, triggerBatchAlignment);
 
+// Dashboard Stats (Public/Demo)
+router.get('/dashboard/stats', async (_req, res) => {
+    const tenant_id = 'org_launchsin_demo'; // Hardcoded for demo
+
+    // 1. Check DB/API Health
+    const { error } = await supabase.from('projects').select('count', { count: 'exact', head: true });
+    const apiStatus = error ? 'Degraded' : 'Healthy';
+
+    // 2. Metrics (Mocked/Inferred)
+    const workerStatus = 'Running';
+    const aiStatus = 'Optimizing';
+
+    // 3. fetch recent projects
+    const { data: projects } = await supabase
+        .from('projects')
+        .select('id, name, created_at')
+        .eq('org_id', tenant_id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+    res.json({
+        api_status: apiStatus,
+        worker_status: workerStatus,
+        ai_status: aiStatus,
+        security_status: 'Active',
+        confidence_score: 98,
+        recent_activity: projects || []
+    });
+});
+
 // Apply auth to all other routes
 router.use(authMiddleware);
 
@@ -183,6 +213,36 @@ router.get('/audit-logs', async (req: AuthenticatedRequest, res: Response) => {
 // Health Checks
 router.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Dashboard Stats
+router.get('/dashboard/stats', async (req: AuthenticatedRequest, res: Response) => {
+    const { tenant_id } = req.user!;
+
+    // 1. Check DB/API Health
+    const { error } = await supabase.from('projects').select('count', { count: 'exact', head: true });
+    const apiStatus = error ? 'Degraded' : 'Healthy';
+
+    // 2. Metrics (Mocked/Inferred)
+    const workerStatus = 'Running';
+    const aiStatus = 'Optimizing';
+
+    // 3. fetch recent projects as "Active Tenants/Projects" context
+    const { data: projects } = await supabase
+        .from('projects')
+        .select('id, name, created_at')
+        .eq('org_id', tenant_id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+    res.json({
+        api_status: apiStatus,
+        worker_status: workerStatus,
+        ai_status: aiStatus,
+        security_status: 'Active',
+        confidence_score: 98,
+        recent_activity: projects || []
+    });
 });
 
 export default router;
