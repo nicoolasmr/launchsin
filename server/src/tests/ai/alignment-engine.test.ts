@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import OpenAI from 'openai';
-import { AdContent, ScrapedContent } from '../../ai/alignment-engine';
+import { AdContent, ScrapedContent } from '../../ai/alignment-engine.js';
 
 // Auto mock OpenAI
 jest.mock('openai');
@@ -29,7 +29,7 @@ describe('AlignmentEngine', () => {
         // We should probably instantiate the CLASS directly if possible, but it wasn't exported directly in Step 2087?
         // Step 2087: export class AlignmentEngine ... export const alignmentEngine = new ...
         // So we CAN import the class.
-        const { AlignmentEngine } = await import('../../ai/alignment-engine');
+        const { AlignmentEngine } = await import('../../ai/alignment-engine.js');
         engine = new AlignmentEngine();
     });
 
