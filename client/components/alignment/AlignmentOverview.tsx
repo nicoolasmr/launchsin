@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming shadcn
+import { Card, CardContent, CardHeader, CardTitle } from '@/design-system/atoms/Card'; // Fixed import
 // Fallback if shadcn not installed: use div with standard classes
 // Project uses Tailwind.
 

@@ -131,8 +131,8 @@ export default function AlignmentPage() {
                         {/* Filters placeholders */}
                         <select className="h-9 w-[150px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                             <option>All Scores</option>
-                            <option>Low Score (< 70)</option>
-                            <option>Critical (< 50)</option>
+                            <option>Low Score (&lt; 70)</option>
+                            <option>Critical (&lt; 50)</option>
                         </select>
                     </div>
                 </div>
