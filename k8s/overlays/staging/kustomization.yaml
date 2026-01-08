@@ -8,6 +8,7 @@ resources:
   - ingress.yaml
   - ../../base/api
   - ../../base/workers
+  - ../../workers/hubspot-sync/deployment.yaml
 
 commonLabels:
   env: staging

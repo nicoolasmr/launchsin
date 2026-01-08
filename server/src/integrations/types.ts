@@ -1,7 +1,8 @@
 export enum IntegrationProvider {
     HOTMART = 'hotmart',
     META_ADS = 'meta_ads',
-    GOOGLE_ADS = 'google_ads'
+    GOOGLE_ADS = 'google_ads',
+    HUBSPOT = 'hubspot'
 }
 
 export interface SourceConnection {
@@ -11,9 +12,14 @@ export interface SourceConnection {
     type: IntegrationProvider;
     name: string;
     config_json: any;
+    state_json?: any;
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    last_sync_at?: string;
+    last_success_at?: string;
+    last_error_at?: string;
+    last_error_class?: string;
 }
 
 export interface SyncRun {
@@ -52,11 +58,24 @@ export interface IntegrationAlert {
 
 export interface SourceConnectionDTO {
     id: string;
+    org_id: string;
+    project_id: string;
     type: IntegrationProvider;
     name: string;
     is_active: boolean;
     health_score: number;
     last_sync_at?: string;
+    last_success_at?: string;
+    last_error_at?: string;
+    last_error_class?: string;
+    has_token: boolean;
+    display_name?: string;
+    capabilities?: {
+        oauth: boolean;
+        incremental_sync: boolean;
+    };
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface SyncRunDTO {

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: launchsin-worker-hubspot
+  labels:
+    app: launchsin-worker-hubspot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: launchsin-worker-hubspot
+  template:
+    metadata:
+      labels:
+        app: launchsin-worker-hubspot
+    spec:
+      containers:
+      - name: worker
+        image: launchsin-workers:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: WORKER_MODE
+          value: "hubspot"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: database-url
+        - name: SUPABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: launchsin-config
+              key: supabase-url
+        - name: SUPABASE_SERVICE_ROLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: supabase-service-key
+        - name: SECRETS_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: encryption-key
+        - name: INTERNAL_API_URL
+          value: "http://launchsin-server:3000/api"
+        - name: INTERNAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: launchsin-secrets
+              key: internal-api-key
+        - name: HUBSPOT_SYNC_INTERVAL_MS
+          value: "3600000" # 1 hour
+        resources:
+          limits:
+            cpu: "300m"
+            memory: "384Mi"
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - node
+          initialDelaySeconds: 10
+          periodSeconds: 30

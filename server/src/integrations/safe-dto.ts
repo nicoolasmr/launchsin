@@ -16,11 +16,24 @@ import {
 export const toSafeSourceConnectionDTO = (conn: SourceConnection, healthScore: number = 100): SourceConnectionDTO => {
     return {
         id: conn.id,
+        org_id: conn.org_id,
+        project_id: conn.project_id,
         type: conn.type,
         name: conn.name,
         is_active: conn.is_active,
         health_score: healthScore,
-        last_sync_at: conn.updated_at // Fallback to updated_at if no runs exist
+        last_sync_at: conn.last_sync_at || conn.updated_at,
+        last_success_at: conn.last_success_at,
+        last_error_at: conn.last_error_at,
+        last_error_class: conn.last_error_class,
+        has_token: !!conn.config_json?.has_token,
+        display_name: conn.config_json?.display_name || conn.name,
+        capabilities: {
+            oauth: conn.type === 'hubspot' || conn.type === 'meta_ads',
+            incremental_sync: true
+        },
+        created_at: conn.created_at,
+        updated_at: conn.updated_at
     };
 };
 

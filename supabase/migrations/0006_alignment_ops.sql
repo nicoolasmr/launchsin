@@ -98,6 +98,7 @@ ALTER TABLE alignment_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alignment_cache ENABLE ROW LEVEL SECURITY;
 
 -- alignment_settings policies
+DROP POLICY IF EXISTS alignment_settings_select ON alignment_settings;
 CREATE POLICY alignment_settings_select ON alignment_settings
     FOR SELECT
     USING (
@@ -109,6 +110,7 @@ CREATE POLICY alignment_settings_select ON alignment_settings
         )
     );
 
+DROP POLICY IF EXISTS alignment_settings_insert ON alignment_settings;
 CREATE POLICY alignment_settings_insert ON alignment_settings
     FOR INSERT
     WITH CHECK (
@@ -122,6 +124,7 @@ CREATE POLICY alignment_settings_insert ON alignment_settings
         )
     );
 
+DROP POLICY IF EXISTS alignment_settings_update ON alignment_settings;
 CREATE POLICY alignment_settings_update ON alignment_settings
     FOR UPDATE
     USING (
@@ -135,6 +138,7 @@ CREATE POLICY alignment_settings_update ON alignment_settings
         )
     );
 
+DROP POLICY IF EXISTS alignment_settings_delete ON alignment_settings;
 CREATE POLICY alignment_settings_delete ON alignment_settings
     FOR DELETE
     USING (
@@ -145,6 +149,7 @@ CREATE POLICY alignment_settings_delete ON alignment_settings
     );
 
 -- alignment_runs policies
+DROP POLICY IF EXISTS alignment_runs_select ON alignment_runs;
 CREATE POLICY alignment_runs_select ON alignment_runs
     FOR SELECT
     USING (
@@ -156,6 +161,7 @@ CREATE POLICY alignment_runs_select ON alignment_runs
         )
     );
 
+DROP POLICY IF EXISTS alignment_runs_insert ON alignment_runs;
 CREATE POLICY alignment_runs_insert ON alignment_runs
     FOR INSERT
     WITH CHECK (
@@ -169,6 +175,7 @@ CREATE POLICY alignment_runs_insert ON alignment_runs
         )
     );
 
+DROP POLICY IF EXISTS alignment_runs_update ON alignment_runs;
 CREATE POLICY alignment_runs_update ON alignment_runs
     FOR UPDATE
     USING (
@@ -179,6 +186,7 @@ CREATE POLICY alignment_runs_update ON alignment_runs
     );
 
 -- alignment_cache policies (same as runs)
+DROP POLICY IF EXISTS alignment_cache_select ON alignment_cache;
 CREATE POLICY alignment_cache_select ON alignment_cache
     FOR SELECT
     USING (
@@ -190,6 +198,7 @@ CREATE POLICY alignment_cache_select ON alignment_cache
         )
     );
 
+DROP POLICY IF EXISTS alignment_cache_insert ON alignment_cache;
 CREATE POLICY alignment_cache_insert ON alignment_cache
     FOR INSERT
     WITH CHECK (
@@ -201,6 +210,7 @@ CREATE POLICY alignment_cache_insert ON alignment_cache
         )
     );
 
+DROP POLICY IF EXISTS alignment_cache_delete ON alignment_cache;
 CREATE POLICY alignment_cache_delete ON alignment_cache
     FOR DELETE
     USING (

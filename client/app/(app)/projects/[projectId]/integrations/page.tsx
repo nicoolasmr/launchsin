@@ -11,7 +11,9 @@ import { AlertsTab, IntegrationAlert } from '@/components/integrations/Alerts';
 import { SettingsTab, SourceConnection } from '@/components/integrations/Settings';
 import { AlignmentTab } from '@/components/integrations/Alignment';
 
-type TabId = 'overview' | 'runs' | 'dlq' | 'alerts' | 'alignment' | 'settings';
+import { CrmHub } from '@/components/integrations/CrmHub';
+
+type TabId = 'overview' | 'runs' | 'dlq' | 'alerts' | 'alignment' | 'crm' | 'settings';
 
 export default function StatusCenterPage() {
     const { projectId } = useParams();
@@ -26,6 +28,7 @@ export default function StatusCenterPage() {
     const [alerts, setAlerts] = useState<IntegrationAlert[]>([]);
     const [connections, setConnections] = useState<SourceConnection[]>([]);
     const [isAlignmentEnabled, setIsAlignmentEnabled] = useState(false);
+    const [isCrmEnabled, setIsCrmEnabled] = useState(false);
 
     // RBAC: Mock current user role
     const userRole = 'owner'; // In production, this would come from a SessionContext
@@ -58,6 +61,7 @@ export default function StatusCenterPage() {
 
         // MOCK: Feature Flag Check
         setIsAlignmentEnabled(true); // Enabled for Sprint 1.3
+        setIsCrmEnabled(true); // Enabled for Sprint 2.1
     };
 
     const handleTriggerAlignmentCheck = async () => {
@@ -93,11 +97,12 @@ export default function StatusCenterPage() {
     const tabs: { id: TabId; label: string; count?: number }[] = [
         { id: 'overview', label: 'Overview' },
         { id: 'alignment', label: 'Alignment', count: isAlignmentEnabled ? 4 : 0 },
+        isCrmEnabled ? { id: 'crm', label: 'CRM Hub', count: 0 } : null,
         { id: 'runs', label: 'Sync Runs' },
         { id: 'dlq', label: 'DLQ', count: dlq.filter(e => e.status === 'pending').length },
         { id: 'alerts', label: 'Alerts', count: alerts.length },
         { id: 'settings', label: 'Settings' },
-    ];
+    ].filter(Boolean) as any;
 
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -166,6 +171,7 @@ export default function StatusCenterPage() {
                     <div className="animate-in slide-in-from-bottom-1 duration-500 fill-mode-both">
                         {activeTab === 'overview' && <OverviewView isAlignmentEnabled={isAlignmentEnabled} />}
                         {activeTab === 'alignment' && <AlignmentTab projectId={projectId as string} onTriggerCheck={handleTriggerAlignmentCheck} />}
+                        {activeTab === 'crm' && <CrmHub projectId={projectId as string} />}
                         {activeTab === 'runs' && <SyncRunsTab data={runs} />}
                         {activeTab === 'dlq' && <DlqTab data={dlq} canManage={canManage} onRetry={(id: string) => console.log('Retry', id)} />}
                         {activeTab === 'alerts' && <AlertsTab data={alerts} />}

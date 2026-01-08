@@ -20,11 +20,23 @@ async function bootstrap() {
         await job.startWorker();
     }
 
-    // Start Polling Workers (Standalone loops)
-    await dlqWorker.start();
-    await alignmentWorker.start();
+    // Start Polling Workers (Standalone loops) based on MODE
+    const mode = process.env.WORKER_MODE || 'all';
 
-    logger.info('All workers and polling loops active.');
+    if (mode === 'all' || mode === 'dlq') {
+        await dlqWorker.start();
+    }
+
+    if (mode === 'all' || mode === 'alignment') {
+        await alignmentWorker.start();
+    }
+
+    if (mode === 'all' || mode === 'hubspot') {
+        const { hubspotSyncWorker } = await import('./jobs/hubspot-sync-worker');
+        await hubspotSyncWorker.start();
+    }
+
+    logger.info(`Workers active. Mode: ${mode}`);
 }
 
 bootstrap().catch(err => {

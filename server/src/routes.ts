@@ -19,6 +19,10 @@ import { IntegrationProvider, SourceConnection, SyncRun, DlqEvent, IntegrationAl
 import { logger } from './infra/structured-logger';
 import { handleHotmartWebhook } from './routes/webhooks/hotmart';
 import { startMetaOAuth, handleMetaOAuthCallback } from './routes/oauth/meta';
+import { startHubSpotOAuth, handleHubSpotCallback } from './routes/oauth/hubspot';
+import { triggerIntegrationSync } from './routes/internal/integrations';
+// import { alignmentRouter } from './routes/internal/alignment';
+import crmRouter from './routes/crm';
 import {
     triggerAlignmentCheck,
     getAlignmentReports,
@@ -37,8 +41,15 @@ router.post('/webhooks/hotmart/:connectionId', handleHotmartWebhook);
 router.get('/oauth/meta/start', startMetaOAuth);
 router.get('/oauth/meta/callback', handleMetaOAuthCallback);
 
+router.get('/oauth/hubspot/start', startHubSpotOAuth);
+router.get('/oauth/hubspot/callback', handleHubSpotCallback);
+
+// CRM Hub Routes
+router.use(crmRouter);
+
 // Internal Service Routes (Protected by Internal Key, No User Auth)
 router.post('/internal/alignment/project/:projectId/batch-run', requireInternalKey, triggerBatchAlignment);
+router.post('/internal/integration/sync', requireInternalKey, triggerIntegrationSync);
 
 // Dashboard Stats (Public/Demo)
 router.get('/dashboard/stats', async (_req, res) => {

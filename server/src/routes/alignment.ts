@@ -47,6 +47,8 @@ export async function triggerAlignmentCheck(
             headline: req.body.headline,
             body: req.body.body,
             cta_text: req.body.cta_text,
+            cta: req.body.cta_text || 'LEARN_MORE', // Added for AdContent compatibility
+            creativeId: ad_id || `manual-${Date.now()}`, // Added for AdContent compatibility
             landing_url: landing_url
         };
 

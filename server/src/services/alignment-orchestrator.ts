@@ -12,11 +12,12 @@
 import * as crypto from 'crypto';
 import { supabase } from '../infra/db';
 import { logger } from '../infra/structured-logger';
-import { alignmentEngine } from '../ai/alignment-engine';
+import { alignmentEngine, AdCreative } from '../ai/alignment-engine';
 import { alignmentSettingsService } from './alignment-settings';
 import { pageScraper } from '../ai/page-scraper';
 import { MetaAdsConnector } from '../integrations/connectors/meta-ads';
 import { alignmentChecksTotal } from '../utils/metrics';
+import { secretsProvider } from '../security/secrets-provider';
 
 export class AlignmentOrchestrator {
     /**
@@ -80,25 +81,23 @@ export class AlignmentOrchestrator {
                 if (!budget.allowed) break;
 
                 // Extract Creative Data
-                // Note: In production this requires robust parsing of Meta's nested creative structure
-                // We use defaults here if fields are missing as placeholders
                 const headline = metaAd.creative?.title || metaAd.name;
                 const body = metaAd.creative?.body || 'Check this out';
 
                 // Try to find a URL (simplified logic)
-                // Real implementation would look into adcreatives link_data or object_story_spec
-                // For this sprint, we use a placeholder or extract if seemingly available
                 const landingUrl = 'https://example.com/product?utm_source=meta';
 
                 if (!landingUrl) continue;
 
-                const adData = {
+                const adData: AdCreative = {
                     ad_id: metaAd.id,
                     ad_name: metaAd.name,
                     headline,
                     body,
                     cta_text: metaAd.creative?.call_to_action_type || 'Learn More',
-                    image_url: metaAd.creative?.image_url,
+                    cta: metaAd.creative?.call_to_action_type || 'Learn More', // Align with AdContent
+                    creativeId: metaAd.creative?.id || metaAd.id, // Align with AdContent
+                    // image_url: metaAd.creative?.image_url,
                     landing_url: landingUrl
                 };
 
@@ -114,7 +113,7 @@ export class AlignmentOrchestrator {
                         pageAnalysis
                     );
 
-                    // Save report (Note: analyzeAlignment handles caching, but saveReport handles persistence to reports table)
+                    // Save report
                     await alignmentEngine.saveReport(
                         connection.org_id,
                         connection.project_id,
@@ -169,7 +168,8 @@ export class AlignmentOrchestrator {
             .eq('key_name', secretKeyName)
             .single();
         if (!data) throw new Error('Token not found');
-        return data.secret_id_ref;
+
+        return secretsProvider.decrypt(data.secret_id_ref);
     }
 }
 
