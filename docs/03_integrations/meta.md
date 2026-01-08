@@ -14,6 +14,8 @@ The Meta Ads connector uses OAuth 2.0 for authentication and syncs campaign data
 - Ad account with active campaigns
 - Admin access to LaunchSin project
 
+> **Note:** This integration is required for the **Alignment Ads ↔ Pages Verification Center (v2)** to fetch ad creatives.
+
 ## Setup Steps
 
 ### 1. Create Meta App

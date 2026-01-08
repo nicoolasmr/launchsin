@@ -34,38 +34,36 @@ The Alignment Intelligence system automatically detects misalignments between ad
 
 ## Data Model
 
-### `alignment_reports` Table
+### `alignment_reports_v2` Table (V2)
 
 ```sql
-CREATE TABLE alignment_reports (
+CREATE TABLE alignment_reports_v2 (
     id UUID PRIMARY KEY,
     org_id UUID,
     project_id UUID,
     source_connection_id UUID,
     ad_id TEXT,
-    ad_name TEXT,
     landing_url TEXT,
     score INT CHECK (score >= 0 AND score <= 100),
-    reasons_json JSONB, -- Array of issues
-    evidence_json JSONB, -- Collected data
-    analyzed_by TEXT DEFAULT 'gpt-4',
+    dimensions JSONB, -- { message_match, offer_match, cta_match, tracking_health }
+    evidence JSONB, -- { ad_headline, page_h1, pixels_detected, utms_detected }
+    recommendations JSONB, -- Array of strings
+    confidence_score INT DEFAULT 100,
+    model_info JSONB,
     created_at TIMESTAMPTZ
 );
 ```
 
 ### Issue Types
+- `message_match`: Ad promise differs from page content.
+- `offer_match`: Price/product inconsistency.
+- `cta_match`: CTA text differs or missing.
+- `tracking_health`: Missing Pixel or UTM parameters.
 
-- `message_mismatch`: Ad promise doesn't match page content
-- `offer_mismatch`: Price/product inconsistency
-- `cta_mismatch`: CTA text differs between ad and page
-- `tracking_missing`: No pixel or UTM parameters
-
-### Severity Levels
-
-- `critical`: Immediate fix required (score impact: -30)
-- `high`: Important issue (score impact: -20)
-- `medium`: Should be addressed (score impact: -10)
-- `low`: Minor optimization (score impact: -5)
+### Alignment V2 Features
+- **Glass Box UI**: Full evidence visibility (Ad Creative vs Landing Page Screenshot).
+- **Playwright Scraping**: Headless browser for accurate SPA rendering.
+- **Leak Gate**: Security middleware preventing secret exposure.
 
 ## API Usage
 

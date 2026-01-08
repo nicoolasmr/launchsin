@@ -23,14 +23,7 @@ import { startHubSpotOAuth, handleHubSpotCallback } from './routes/oauth/hubspot
 import { triggerIntegrationSync } from './routes/internal/integrations';
 // import { alignmentRouter } from './routes/internal/alignment';
 import crmRouter from './routes/crm';
-import {
-    triggerAlignmentCheck,
-    getAlignmentReports,
-    getAlignmentReport,
-    getAlignmentSettings,
-    updateAlignmentSettings,
-    triggerBatchAlignment
-} from './routes/alignment';
+import { alignmentV2Router } from './routes/api/alignment-v2';
 
 const router = Router();
 
@@ -48,7 +41,7 @@ router.get('/oauth/hubspot/callback', handleHubSpotCallback);
 router.use(crmRouter);
 
 // Internal Service Routes (Protected by Internal Key, No User Auth)
-router.post('/internal/alignment/project/:projectId/batch-run', requireInternalKey, triggerBatchAlignment);
+// router.post('/internal/alignment/project/:projectId/batch-run', requireInternalKey, triggerBatchAlignment);
 router.post('/internal/integration/sync', requireInternalKey, triggerIntegrationSync);
 
 // Dashboard Stats (Public/Demo)
@@ -86,11 +79,8 @@ router.use(authMiddleware);
 
 // Alignment Intelligence (ADMIN only)
 // Alignment Intelligence (ADMIN only for checks/settings, VIEWER for reports)
-router.post('/projects/:projectId/integrations/alignment/check', validateProjectAccess, requireOrgRole('admin'), triggerAlignmentCheck);
-router.get('/projects/:projectId/integrations/alignment/reports', validateProjectAccess, requireOrgRole('viewer'), getAlignmentReports);
-router.get('/projects/:projectId/integrations/alignment/reports/:reportId', validateProjectAccess, requireOrgRole('viewer'), getAlignmentReport);
-router.get('/projects/:projectId/integrations/alignment/settings', validateProjectAccess, requireOrgRole('viewer'), getAlignmentSettings);
-router.put('/projects/:projectId/integrations/alignment/settings', validateProjectAccess, requireOrgRole('admin'), updateAlignmentSettings);
+// Alignment Intelligence V2
+router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentV2Router);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {

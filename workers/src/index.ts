@@ -1,6 +1,6 @@
 import { AuditSyncJob } from './jobs/audit-sync';
 import { dlqWorker } from './jobs/dlq-worker';
-import { alignmentWorker } from './jobs/alignment-worker';
+
 import { logger } from './infra/structured-logger';
 
 /**
@@ -27,13 +27,17 @@ async function bootstrap() {
         await dlqWorker.start();
     }
 
-    if (mode === 'all' || mode === 'alignment') {
-        await alignmentWorker.start();
-    }
+
 
     if (mode === 'all' || mode === 'hubspot') {
-        const { hubspotSyncWorker } = await import('./jobs/hubspot-sync-worker');
+        const { hubspotSyncWorker } = await import('./jobs/hubspot-sync-worker.js');
         await hubspotSyncWorker.start();
+    }
+
+    if (mode === 'all' || mode === 'alignment') {
+        // Use V2 Worker
+        const { alignmentWorkerV2 } = await import('./jobs/alignment-worker-v2.js');
+        await alignmentWorkerV2.start();
     }
 
     logger.info(`Workers active. Mode: ${mode}`);

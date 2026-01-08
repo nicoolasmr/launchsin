@@ -16,7 +16,10 @@
         "testEnvironment": "node",
         "testMatch": [
             "**/tests/**/*.test.ts"
-        ]
+        ],
+        "moduleNameMapper": {
+            "^(\\.{1,2}/.*)\\.js$": "$1"
+        }
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.89.0",
