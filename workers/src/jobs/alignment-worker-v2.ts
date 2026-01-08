@@ -69,6 +69,18 @@ export class AlignmentWorkerV2 {
         const jobId = job.id;
         const orgId = job.org_id;
 
+        // Per-Project Lock (Avoid hitting same site concurrently repeatedly if queue is stacked)
+        // Key: alignment_v2_project_{projectId}
+        // TTL: 30s (approx time for 1 check)
+        const projectLockKey = `alignment_v2_project_${job.project_id}`;
+        const hasProjectLock = await this.acquireLock(projectLockKey, 30);
+
+        if (!hasProjectLock) {
+            // Skip this job for this tick, let another worker or next tick pick it up
+            // We do NOT mark as failed, just return.
+            return;
+        }
+
         try {
             // 1. Mark Running
             await supabase.from('alignment_jobs').update({ status: 'running' }).eq('id', jobId);
