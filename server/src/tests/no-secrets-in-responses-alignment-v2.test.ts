@@ -5,6 +5,17 @@ import { alignmentServiceV2 } from '../services/alignment-service-v2';
 
 // Mock dependencies
 jest.mock('../services/alignment-service-v2');
+jest.mock('../infra/db', () => ({
+    supabase: {
+        from: jest.fn(() => ({
+            select: jest.fn(() => ({
+                eq: jest.fn(() => ({ single: jest.fn(() => ({ data: {}, error: null })) }))
+            }))
+        })),
+        auth: { getUser: jest.fn() }
+    }
+}));
+
 jest.mock('../middleware/rbac', () => ({
     requireOrgRole: () => (req: any, res: any, next: any) => next(), // Bypass RBAC
     validateProjectAccess: (req: any, res: any, next: any) => next() // Bypass Project Access

@@ -38,8 +38,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-app.listen(port, () => {
-  logger.info(`LaunchSin API starting...`, { port, mode: process.env.NODE_ENV });
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    logger.info(`LaunchSin API starting...`, { port, mode: process.env.NODE_ENV });
+  });
+}
 
 export default app;
