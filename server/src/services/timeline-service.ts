@@ -40,7 +40,7 @@ export class TimelineService {
 
         // Title diff
         if (prevSnapshot.title !== nextSnapshot.title) {
-            diffJson.title = {
+            diffData.title = {
                 old: prevSnapshot.title || '',
                 new: nextSnapshot.title || ''
             };
@@ -51,7 +51,7 @@ export class TimelineService {
         const prevH1 = prevSnapshot.h1 || [];
         const nextH1 = nextSnapshot.h1 || [];
         if (JSON.stringify(prevH1) !== JSON.stringify(nextH1)) {
-            diffJson.h1 = { old: prevH1, new: nextH1 };
+            diffData.h1 = { old: prevH1, new: nextH1 };
             changes.push('H1 changed');
         }
 
@@ -59,7 +59,7 @@ export class TimelineService {
         const prevCtas = prevSnapshot.ctas || [];
         const nextCtas = nextSnapshot.ctas || [];
         if (JSON.stringify(prevCtas) !== JSON.stringify(nextCtas)) {
-            diffJson.ctas = { old: prevCtas, new: nextCtas };
+            diffData.ctas = { old: prevCtas, new: nextCtas };
             changes.push('CTA changed');
         }
 
@@ -82,7 +82,7 @@ export class TimelineService {
         }
 
         if (Object.keys(trackingChanges).length > 0) {
-            diffJson.tracking = trackingChanges;
+            diffData.tracking = trackingChanges;
         }
 
         // Save diff
