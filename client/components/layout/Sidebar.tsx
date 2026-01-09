@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 
 const navigation = [
+    { name: 'Home', href: '/home', icon: '🏠' },
     { name: 'Projects', href: '/projects', icon: '📁' },
     { name: 'Campaigns', href: '/campaigns', icon: '📢' },
     { name: 'Analytics', href: '/analytics', icon: '📊' },
