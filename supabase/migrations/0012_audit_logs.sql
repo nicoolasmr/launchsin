@@ -15,7 +15,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    org_id uuid NOT NULL,
     project_id uuid REFERENCES projects(id) ON DELETE CASCADE,
     
     -- Actor
