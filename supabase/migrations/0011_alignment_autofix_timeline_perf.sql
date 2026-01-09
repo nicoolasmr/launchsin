@@ -73,37 +73,8 @@ CREATE POLICY tracking_fix_packs_admin_create ON tracking_fix_packs
 -- ============================================================
 -- B) PAGE SNAPSHOT DIFFS (Change Timeline)
 -- ============================================================
--- Stores before/after comparisons for landing pages
-
-CREATE TABLE IF NOT EXISTS page_snapshot_diffs (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    
-    prev_snapshot_id uuid REFERENCES page_snapshots(id) ON DELETE SET NULL,
-    next_snapshot_id uuid REFERENCES page_snapshots(id) ON DELETE SET NULL,
-    
-    -- Structured diff
-    diff_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-    -- Example: {
-    --   "title": {"old": "Buy Now", "new": "Shop Today"},
-    --   "h1": {"old": ["Welcome"], "new": ["Welcome Back"]},
-    --   "tracking": {"meta_pixel": {"old": false, "new": true}}
-    -- }
-    
-    -- Human-readable summary
-    diff_summary text,
-    -- Example: "H1 changed, Meta Pixel added, CTA updated"
-    
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- Index for timeline queries
-CREATE INDEX IF NOT EXISTS idx_page_snapshot_diffs_project 
-    ON page_snapshot_diffs(project_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_page_snapshot_diffs_snapshots 
-    ON page_snapshot_diffs(prev_snapshot_id, next_snapshot_id);
+-- Table already exists from migration 0009
+-- Just ensure RLS is enabled and add policies
 
 -- RLS: Viewer read
 ALTER TABLE page_snapshot_diffs ENABLE ROW LEVEL SECURITY;
