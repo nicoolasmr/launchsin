@@ -57,6 +57,18 @@ describe('Alignment V2 - Leak Gate E2E', () => {
         expect(res.body.error).toContain('Security Error');
     });
 
+    it('should NOT block response with generic non-pattern secrets', async () => {
+        // LeakGate only blocks specific patterns (Bearer, xoxb-, etc.)
+        // Generic secrets without patterns are allowed
+        const res = await request(app)
+            .get('/api/test-leak-gate')
+            .query({ secret: 'my-secret-123' })
+            .set('Authorization', '***');
+
+        expect(res.status).toBe(200);
+        // Generic secrets pass through - only specific patterns are blocked
+    });
+
     it('should block response with Access Token pattern', async () => {
         mockGetReport.mockResolvedValue({
             id: 'r1',
