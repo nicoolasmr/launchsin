@@ -8,6 +8,7 @@ import {
 } from './shared/safe-dto';
 import { authMiddleware, AuthenticatedRequest, requireInternalKey } from './middleware/auth';
 import { requireOrgRole, validateProjectAccess } from './middleware/rbac';
+import { leakGate } from './middleware/leak-gate';
 import { integrationService } from './integrations/service';
 import {
     toSafeSourceConnectionDTO,
@@ -27,6 +28,7 @@ import { alignmentV2Router } from './routes/api/alignment-v2';
 import alignmentOpsRouter from './routes/api/alignment-ops';
 import trackingFixRouter from './routes/api/tracking-fix';
 import timelineRouter from './routes/api/timeline';
+import homeRouter from './routes/api/home';
 
 const router = Router();
 
@@ -87,6 +89,9 @@ router.use('/projects/:projectId/integrations/alignment', validateProjectAccess,
 router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentOpsRouter);
 router.use(trackingFixRouter);
 router.use(timelineRouter);
+
+// Home Command Center (with LeakGate)
+router.use(leakGate, homeRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
