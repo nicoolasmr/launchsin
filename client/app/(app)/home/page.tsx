@@ -1,0 +1,230 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card } from '@/design-system/atoms/Card';
+import { Button } from '@/design-system/atoms/Button';
+import { Badge } from '@/design-system/atoms/Badge';
+
+interface OverviewData {
+    total_projects: number;
+    integrations_health: { active: number; total: number; health_pct: number } | null;
+    alignment_summary: { avg_score: number; critical_count: number; warning_count: number; last_run_at: string | null } | null;
+    crm_summary: { contacts_count: number; deals_count: number };
+    ops_summary: { dlq_pending: number; alerts_open: number };
+}
+
+interface Decision {
+    id: string;
+    type: string;
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    title: string;
+    why: string;
+    confidence: number | null;
+    next_actions: string[];
+    deep_links: string[];
+}
+
+export default function HomePage() {
+    const [overview, setOverview] = useState<OverviewData | null>(null);
+    const [decisions, setDecisions] = useState<Decision[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const [overviewRes, decisionsRes] = await Promise.all([
+                fetch('/api/home/overview'),
+                fetch('/api/home/decisions')
+            ]);
+
+            if (!overviewRes.ok || !decisionsRes.ok) {
+                throw new Error('Failed to fetch data');
+            }
+
+            const overviewData = await overviewRes.json();
+            const decisionsData = await decisionsRes.json();
+
+            setOverview(overviewData);
+            setDecisions(decisionsData);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getSeverityColor = (severity: string) => {
+        switch (severity) {
+            case 'critical': return 'bg-red-100 text-red-800 border-red-200';
+            case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+            case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            default: return 'bg-blue-100 text-blue-800 border-blue-200';
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="p-8 space-y-6">
+                <div className="animate-pulse">
+                    <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-32 bg-gray-200 rounded"></div>
+                        ))}
+                    </div>
+                    <div className="h-96 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="p-8">
+                <Card className="p-12 text-center">
+                    <span className="text-6xl mb-4 block">⚠️</span>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Data</h2>
+                    <p className="text-gray-600 mb-6">{error}</p>
+                    <Button onClick={fetchData}>Retry</Button>
+                </Card>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-8 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Command Center</h1>
+                    <p className="text-gray-600 mt-1">Your operational dashboard</p>
+                </div>
+                <Button onClick={fetchData} variant="secondary">
+                    🔄 Refresh
+                </Button>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Projects */}
+                <Card className="p-6">
+                    <div className="text-sm text-gray-600 mb-1">Total Projects</div>
+                    <div className="text-3xl font-bold text-gray-900">{overview?.total_projects || 0}</div>
+                </Card>
+
+                {/* Integrations Health */}
+                <Card className="p-6">
+                    <div className="text-sm text-gray-600 mb-1">Integrations</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                        {overview?.integrations_health?.health_pct || 0}%
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {overview?.integrations_health?.active || 0}/{overview?.integrations_health?.total || 0} active
+                    </div>
+                </Card>
+
+                {/* Alignment Score */}
+                <Card className="p-6">
+                    <div className="text-sm text-gray-600 mb-1">Avg Alignment</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                        {overview?.alignment_summary?.avg_score || 'N/A'}
+                        {overview?.alignment_summary?.avg_score && '%'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {overview?.alignment_summary?.critical_count || 0} critical
+                    </div>
+                </Card>
+
+                {/* Ops Health */}
+                <Card className="p-6">
+                    <div className="text-sm text-gray-600 mb-1">Ops Health</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                        {(overview?.ops_summary?.dlq_pending || 0) + (overview?.ops_summary?.alerts_open || 0)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {overview?.ops_summary?.dlq_pending || 0} DLQ, {overview?.ops_summary?.alerts_open || 0} alerts
+                    </div>
+                </Card>
+            </div>
+
+            {/* Decision Feed */}
+            <Card className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">🎯 Decisions & Actions</h2>
+
+                {decisions.length === 0 ? (
+                    <div className="text-center py-12">
+                        <span className="text-6xl mb-4 block">✅</span>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">All Clear!</h3>
+                        <p className="text-gray-600">No critical decisions needed right now</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {decisions.map(decision => (
+                            <div key={decision.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Badge className={getSeverityColor(decision.severity)}>
+                                                {decision.severity.toUpperCase()}
+                                            </Badge>
+                                            {decision.confidence !== null && (
+                                                <span className="text-xs text-gray-500">
+                                                    Confidence: {decision.confidence}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                            {decision.title}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mb-3">{decision.why}</p>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {decision.next_actions.map((action, idx) => (
+                                                <Button key={idx} size="sm" variant="secondary">
+                                                    {action}
+                                                </Button>
+                                            ))}
+                                            {decision.deep_links.map((link, idx) => (
+                                                <a key={idx} href={link}>
+                                                    <Button size="sm" variant="secondary">
+                                                        View Details →
+                                                    </Button>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Card>
+
+            {/* CRM Summary */}
+            {overview?.crm_summary && (
+                <Card className="p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">📊 CRM Activity</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <div className="text-sm text-gray-600">Contacts</div>
+                            <div className="text-2xl font-bold text-gray-900">
+                                {overview.crm_summary.contacts_count}
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-sm text-gray-600">Deals</div>
+                            <div className="text-2xl font-bold text-gray-900">
+                                {overview.crm_summary.deals_count}
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            )}
+        </div>
+    );
+}
