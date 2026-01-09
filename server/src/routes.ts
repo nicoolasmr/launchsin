@@ -29,6 +29,7 @@ import alignmentOpsRouter from './routes/api/alignment-ops';
 import trackingFixRouter from './routes/api/tracking-fix';
 import timelineRouter from './routes/api/timeline';
 import homeRouter from './routes/api/home';
+import homeActionsRouter from './routes/api/home-actions';
 
 const router = Router();
 
@@ -92,6 +93,7 @@ router.use(timelineRouter);
 
 // Home Command Center (with LeakGate)
 router.use(leakGate, homeRouter);
+router.use(leakGate, homeActionsRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
