@@ -29,13 +29,14 @@ const api = {
 
 import { SchedulesTab } from '@/components/alignment/SchedulesTab';
 import { NotificationsTab } from '@/components/alignment/NotificationsTab';
+import { FixPacksTab } from '@/components/alignment/FixPacksTab';
 
 export default function AlignmentPage() {
     const { projectId } = useParams();
     const { toast } = useToast();
 
     // State
-    const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'settings'>('reports');
+    const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'fixpacks' | 'settings'>('reports');
     const [stats, setStats] = useState<any>(null);
     const [reports, setReports] = useState<AlignmentReportUI[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -128,6 +129,12 @@ export default function AlignmentPage() {
                         Scheduled Checks (Ops)
                     </button>
                     <button
+                        onClick={() => setActiveTab('fixpacks')}
+                        className={`${activeTab === 'fixpacks' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                    >
+                        🔧 Fix Packs
+                    </button>
+                    <button
                         onClick={() => setActiveTab('settings')}
                         className={`${activeTab === 'settings' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                     >
@@ -153,6 +160,12 @@ export default function AlignmentPage() {
             {activeTab === 'schedules' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <SchedulesTab projectId={projectId as string} />
+                </div>
+            )}
+
+            {activeTab === 'fixpacks' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <FixPacksTab projectId={projectId as string} />
                 </div>
             )}
 
