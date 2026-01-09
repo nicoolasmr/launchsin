@@ -43,11 +43,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- B) INDEXES
 -- ============================================================
 
--- Query by org (most common)
-CREATE INDEX IF NOT EXISTS idx_audit_logs_org_created 
-    ON audit_logs(org_id, created_at DESC);
-
--- Query by project
+-- Query by project (most common)
 CREATE INDEX IF NOT EXISTS idx_audit_logs_project_created 
     ON audit_logs(project_id, created_at DESC)
     WHERE project_id IS NOT NULL;
