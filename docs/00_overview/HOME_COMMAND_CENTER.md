@@ -1,174 +1,341 @@
-# Command Center Home
+# Command Center Home - Complete Documentation
 
 ## Overview
-The Command Center Home is the operational dashboard for LaunchSin users. It provides a centralized view of key metrics, actionable decisions, and system health.
+The Command Center is LaunchSin's operational dashboard that provides real-time insights and **executable actions** for managing ad campaigns, tracking alignment, and maintaining system health.
 
-## Features
+**Key Features**:
+- **Aggregated Metrics**: Projects, integrations health, alignment scores, CRM activity, ops health
+- **Decision Feed**: Prioritized actionable items with executable buttons
+- **Action Executor**: One-click execution of fixes and checks
+- **Audit Trail**: Immutable log of all actions taken
+- **Real-time Updates**: Auto-refresh after actions
 
-### 1. Overview Aggregators
-**Endpoint**: `GET /api/home/overview`
+---
 
-Aggregates data from multiple sources:
-- **Total Projects**: Count of projects in user's org
-- **Integrations Health**: Active connections vs total, health percentage
-- **Alignment Summary**: Average score, critical/warning counts, last run timestamp
-- **CRM Summary**: Contacts and deals count (if CRM Hub active)
-- **Ops Summary**: DLQ pending count, open alerts count
+## Architecture
 
-### 2. Decision Feed
-**Endpoint**: `GET /api/home/decisions`
+### Backend API
 
-Prioritized list of actionable items:
-- **Alignment Critical**: Pages with score < 50
-- **Tracking Missing**: Missing tracking pixels
-- **DLQ Accumulating**: > 10 events in DLQ
-- **CRM Lag**: High sync lag (future)
+#### GET /api/home/overview
+Aggregates metrics across user's projects.
 
-Each decision includes:
-- `type`: Decision category
-- `severity`: critical/high/medium/low
-- `title`: Short description
-- `why`: Explanation
-- `confidence`: Score (if applicable)
-- `next_actions`: Suggested actions
-- `deep_links`: Links to relevant pages
-
-## Security Architecture
-
-### SafeDTO Whitelist
-All responses use explicit whitelisting:
-
-**Overview Response**:
-```typescript
+**Response (SafeDTO)**:
+```json
 {
-  total_projects: number,
-  integrations_health: { active, total, health_pct },
-  alignment_summary: { avg_score, critical_count, warning_count, last_run_at },
-  crm_summary: { contacts_count, deals_count },
-  ops_summary: { dlq_pending, alerts_open }
+  "total_projects": 5,
+  "integrations_health": {
+    "active": 8,
+    "total": 10,
+    "health_pct": 80
+  },
+  "alignment_summary": {
+    "avg_score": 72,
+    "critical_count": 2,
+    "warning_count": 5,
+    "last_run_at": "2026-01-09T18:00:00Z"
+  },
+  "crm_summary": {
+    "contacts_count": 1250,
+    "deals_count": 45
+  },
+  "ops_summary": {
+    "dlq_pending": 3,
+    "alerts_open": 7
+  }
 }
 ```
 
-**Decisions Response**:
-```typescript
-[{
-  id: string,
-  type: string,
-  severity: 'critical' | 'high' | 'medium' | 'low',
-  title: string,
-  why: string,
-  confidence: number | null,
-  next_actions: string[],
-  deep_links: string[]
-}]
+#### GET /api/home/decisions
+Returns prioritized actionable items with **executable actions**.
+
+**Response (SafeDTO)**:
+```json
+[
+  {
+    "id": "alignment-uuid",
+    "type": "ALIGNMENT_CRITICAL",
+    "severity": "critical",
+    "title": "Low alignment score (42%)",
+    "why": "Page https://example.com has critical misalignment with ad creative",
+    "confidence": 42,
+    "next_actions": [
+      {
+        "label": "Generate Fix Pack",
+        "action_type": "GENERATE_FIX_PACK",
+        "payload": { "page_url": "https://example.com" }
+      },
+      {
+        "label": "Trigger Alignment Check",
+        "action_type": "TRIGGER_ALIGNMENT_CHECK",
+        "payload": { "page_url": "https://example.com" }
+      }
+    ],
+    "deep_links": ["/projects/uuid/integrations/alignment?filter=critical"]
+  }
+]
 ```
 
-### LeakGate
-Both endpoints protected by LeakGate middleware to prevent:
-- API keys in responses
-- Secrets in responses
-- PII leakage
+#### POST /api/home/actions/execute
+Executes an action with RBAC enforcement (Admin/Owner only).
 
-### Tenant Scoping
-All queries are tenant-scoped:
-1. Resolve `user_id` from auth token
-2. Get `org_id` from `org_members`
-3. Get `project_ids` from `project_members`
-4. Filter all queries by `org_id` and `project_ids`
+**Request**:
+```json
+{
+  "project_id": "uuid",
+  "action_type": "GENERATE_FIX_PACK",
+  "payload": { "page_url": "https://example.com" }
+}
+```
+
+**Response (SafeDTO)**:
+```json
+{
+  "ok": true,
+  "audit_id": "uuid",
+  "result": {
+    "summary": "Fix pack generated for https://example.com",
+    "deep_link": "/projects/uuid/integrations/alignment?tab=fixpacks"
+  }
+}
+```
+
+#### GET /api/home/actions/recent
+Returns recent actions from audit log (Viewer+).
+
+**Query**: `?project_id=uuid&limit=10`
+
+**Response (SafeDTO)**:
+```json
+[
+  {
+    "id": "uuid",
+    "action_type": "GENERATE_FIX_PACK",
+    "entity_type": "fix_pack",
+    "entity_id": "generated",
+    "metadata": { "page_url": "https://example.com", "result": "success" },
+    "created_at": "2026-01-09T18:30:00Z"
+  }
+]
+```
+
+---
+
+## Action Types
+
+### GENERATE_FIX_PACK
+Generates tracking fix snippets (Meta Pixel, GTM, GA4, UTM).
+
+**Payload**: `{ page_url: string }`
+
+**Executor**: Reuses `trackingFixService.buildFixPack()`
+
+**Result**: Fix pack created, deep link to Fix Packs tab
+
+---
+
+### VERIFY_TRACKING
+Queues a tracking verification job.
+
+**Payload**: `{ page_url: string }`
+
+**Executor**: Creates `TRACKING_VERIFY` job in `alignment_jobs`
+
+**Result**: Job queued, deep link to Alignment page
+
+---
+
+### TRIGGER_ALIGNMENT_CHECK
+Queues an alignment check job.
+
+**Payload**: `{ page_url: string }`
+
+**Executor**: Creates `ALIGNMENT_CHECK` job in `alignment_jobs`
+
+**Result**: Job queued, deep link to Alignment page
+
+---
+
+### RESOLVE_ALERT
+Marks an alert as resolved.
+
+**Payload**: `{ alert_id: string }`
+
+**Executor**: Updates `alignment_alerts.status = 'resolved'`
+
+**Result**: Alert resolved, deep link to Alignment page
+
+---
+
+## Security Architecture
+
+### LeakGate
+All home routes registered with `leakGate` middleware.
+
+**Blocks**:
+- API keys (`sk-*`, `Bearer *`)
+- Secrets (`password`, `secret`, `api_key`)
+- PII patterns (emails, phone numbers)
+
+---
+
+### SafeDTO
+All responses use explicit whitelists.
+
+**Overview Whitelist**:
+- `total_projects`, `integrations_health`, `alignment_summary`, `crm_summary`, `ops_summary`
+
+**Decisions Whitelist**:
+- `id`, `type`, `severity`, `title`, `why`, `confidence`, `next_actions`, `deep_links`
+
+**Actions Whitelist**:
+- `ok`, `audit_id`, `result.summary`, `result.deep_link`
+
+---
 
 ### RBAC
-- **Viewer+**: Can read overview and decisions
-- **Admin/Owner**: Same as viewer (no mutations in this feature)
+
+**Viewer+**: Can read overview + decisions + audit logs
+
+**Admin/Owner**: Can execute actions (mutations)
+
+**Enforcement**: Via `project_members` role check
+
+---
+
+### Tenant Scoping
+
+**All queries filtered by**:
+1. User's `org_id` (from `org_members`)
+2. User's `project_ids` (from `project_members`)
+
+**Cross-tenant isolation**: User A cannot see User B's data
+
+---
+
+### Audit Trail
+
+**All actions logged to `audit_logs`**:
+- `org_id`, `project_id`, `actor_user_id`
+- `action_type`, `entity_type`, `entity_id`
+- `metadata_json` (redacted - no secrets)
+- `created_at`
+
+**Metadata Redaction**:
+Automatically removes: `api_key`, `token`, `secret`, `password`, `sk-*`, `Bearer *`
+
+**RLS**:
+- SELECT: Org members (viewer+)
+- INSERT: Admin/Owner only
+- UPDATE/DELETE: Blocked (immutable)
+
+---
+
+## Frontend UI
+
+### Components
+
+**HomePage** (`client/app/(app)/home/page.tsx`):
+- KPI Cards (4 metrics)
+- Decision Feed with executable buttons
+- Recent Actions section
+- CRM Activity summary
+
+**Features**:
+- ✅ Skeleton loaders (smooth loading)
+- ✅ Error states (retry button)
+- ✅ Empty states ("All Clear!")
+- ✅ Action buttons (admin/owner only)
+- ✅ Loading states (⏳ spinner on executing button)
+- ✅ Toast notifications (success/error)
+- ✅ Auto-refresh after action
+
+### User Flow
+
+1. User navigates to `/home`
+2. Sees KPIs + Decision Feed
+3. Clicks "Generate Fix Pack" button
+4. Button shows loading spinner (⏳)
+5. Action executes via POST `/api/home/actions/execute`
+6. Success toast appears: "Fix pack generated for https://example.com"
+7. Data auto-refreshes
+8. Recent Actions section shows new entry
+
+---
 
 ## Data Sources
 
 ### Projects
-- Table: `projects`
-- Filter: `org_id = user's org`
+- **Table**: `projects`
+- **Metric**: Total count per org
 
-### Integrations
-- Table: `source_connections`
-- Filter: `project_id IN user's projects`
-- Metrics: Count by status
+### Integrations Health
+- **Table**: `source_connections`
+- **Metrics**: Active/total connections, health %
 
-### Alignment
-- Tables: `alignment_reports_v2`, `alignment_jobs`, `alignment_alerts`
-- Filter: `project_id IN user's projects`
-- Metrics: Avg score, critical count, warning count
+### Alignment Summary
+- **Table**: `alignment_reports_v2`
+- **Metrics**: Avg score, critical/warning counts, last run
 
-### CRM
-- Tables: `crm_contacts`, `crm_deals`
-- Filter: `project_id IN user's projects`
-- Metrics: Total counts
+### CRM Summary
+- **Tables**: `crm_contacts`, `crm_deals`
+- **Metrics**: Counts
 
-### Ops
-- Tables: `dlq_events`, `alignment_alerts`
-- Filter: `project_id IN user's projects`
-- Metrics: Pending/open counts
+### Ops Summary
+- **Tables**: `dlq_events`, `alignment_alerts`
+- **Metrics**: Pending DLQ, open alerts
 
-## UI Components
-
-### Home Page
-- **Location**: `client/app/(app)/home/page.tsx`
-- **Features**: Skeleton loaders, error states, empty states
-- **Layout**: KPI cards + Decision feed + CRM summary
-
-### Navigation
-- **Sidebar**: "🏠 Home" as first item
-- **Route**: `/home`
+---
 
 ## Debugging
 
-### Check Data
-```sql
--- User's org
-SELECT org_id FROM org_members WHERE user_id = 'xxx';
-
--- User's projects
-SELECT project_id FROM project_members WHERE user_id = 'xxx';
-
--- Alignment summary
-SELECT AVG(alignment_score), COUNT(*) 
-FROM alignment_reports_v2 
-WHERE project_id IN (...);
-```
-
-### API Testing
+### Check Overview Data
 ```bash
-# Overview
 curl -H "Authorization: Bearer TOKEN" \
   http://localhost:3000/api/home/overview
+```
 
-# Decisions
+### Check Decisions
+```bash
 curl -H "Authorization: Bearer TOKEN" \
   http://localhost:3000/api/home/decisions
 ```
 
-### Logs
+### Execute Action
 ```bash
-# Server logs
-grep "Home overview" server/logs/*.log
-grep "Home decisions" server/logs/*.log
+curl -X POST -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"project_id":"uuid","action_type":"GENERATE_FIX_PACK","payload":{"page_url":"https://example.com"}}' \
+  http://localhost:3000/api/home/actions/execute
 ```
 
-## Future Enhancements
+### Check Audit Logs
+```sql
+SELECT 
+  al.action_type,
+  al.entity_type,
+  al.metadata_json,
+  al.created_at,
+  u.email as actor_email
+FROM audit_logs al
+JOIN auth.users u ON u.id = al.actor_user_id
+WHERE al.project_id = 'PROJECT_UUID'
+ORDER BY al.created_at DESC
+LIMIT 20;
+```
 
-### PR #2: Action Executor
-- "Generate Fix Pack" button
-- "Resolve Alert" action
-- Audit log for actions
+### Check RLS
+```sql
+-- As specific user
+SET request.jwt.claim.sub = 'USER_UUID';
 
-### PR #3: Personalization
-- User preferences (`user_home_prefs` table)
-- Customizable widgets
-- Drag-and-drop layout
+SELECT * FROM audit_logs;
+-- Should only see logs for user's org
+```
 
-### PR #4: Performance
-- Hash-based caching
-- Prometheus metrics
-- SLO dashboard
+---
 
 ## Related Documentation
-- [CI Gates](../06_runbooks/CI_GATES.md)
-- [Tracking Auto-Fix](../06_runbooks/TRACKING_AUTOFIX.md)
-- [Alignment Pipeline](../03_architecture/ALIGNMENT_PIPELINE.md)
+- [AUDIT_LOGS.md](../06_runbooks/AUDIT_LOGS.md) - Audit trail runbook
+- [RBAC.md](../03_architecture/RBAC.md) - Role-based access control
+- [SAFE_DTO.md](../03_architecture/SAFE_DTO.md) - Data transfer objects
+- [LEAK_GATE.md](../03_architecture/LEAK_GATE.md) - Secret detection
