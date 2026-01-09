@@ -265,8 +265,9 @@ Return ONLY valid JSON in this format:
             model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.3,
-            max_tokens: 500,
-            timeout: 10000 // 10s timeout
+            max_tokens: 500
+        }, {
+            timeout: 10000 // 10 seconds timeout
         });
 
         const content = response.choices[0]?.message?.content || '{}';
