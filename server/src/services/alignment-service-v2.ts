@@ -77,9 +77,18 @@ export class AlignmentServiceV2 {
             screenshotUrl = sign?.signedUrl;
         }
 
+        // Fetch Diff
+        const { data: diff } = await supabase
+            .from('page_snapshot_diffs')
+            .select('diff_summary, severity')
+            // @ts-ignore
+            .eq('current_snapshot_id', data.page_snapshot_id)
+            .maybeSingle();
+
         return {
             ...this.safeDTO(data),
-            screenshot_url: screenshotUrl
+            screenshot_url: screenshotUrl,
+            diff: diff ? { summary: diff.diff_summary, severity: diff.severity } : null
         };
     }
 

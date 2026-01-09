@@ -24,6 +24,7 @@ import { triggerIntegrationSync } from './routes/internal/integrations';
 // import { alignmentRouter } from './routes/internal/alignment';
 import crmRouter from './routes/crm';
 import { alignmentV2Router } from './routes/api/alignment-v2';
+import alignmentOpsRouter from './routes/api/alignment-ops';
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.use(authMiddleware);
 // Alignment Intelligence (ADMIN only for checks/settings, VIEWER for reports)
 // Alignment Intelligence V2
 router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentV2Router);
+router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentOpsRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {

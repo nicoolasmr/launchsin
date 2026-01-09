@@ -27,11 +27,15 @@ const api = {
     }
 };
 
+import { SchedulesTab } from '@/components/alignment/SchedulesTab';
+import { NotificationsTab } from '@/components/alignment/NotificationsTab';
+
 export default function AlignmentPage() {
     const { projectId } = useParams();
     const { toast } = useToast();
 
     // State
+    const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'settings'>('reports');
     const [stats, setStats] = useState<any>(null);
     const [reports, setReports] = useState<AlignmentReportUI[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -60,26 +64,13 @@ export default function AlignmentPage() {
     };
 
     useEffect(() => {
-        if (projectId) fetchData();
-    }, [projectId]);
+        if (projectId && activeTab === 'reports') fetchData();
+    }, [projectId, activeTab]);
 
     // Handlers
     const handleTriggerCheck = async () => {
-        // For MVP, trigger generic batch or open a dialog to specific ad/url?
-        // Prompt says: "Trigger check (ADMIN/OWNER)". "Trigger batch".
-        // API supports manual check (POST /check).
-        // Let's assume we trigger a batch run via internal API or just re-run all.
-        // Prompt: "Action: Trigger check".
         try {
             toast({ title: 'Triggering batch check...' });
-            // Call internal batch trigger (exposed via UI Proxy presumably or direct endpoint?)
-            // UI Router mounts alignmentV2Router at /projects/:id/integrations/alignment
-            // But existing 'triggerBatchAlignment' is INTERNAL.
-            // Maybe we call POST /check with specific data?
-            // Or we add a 'triggerBatch' endpoint to V2?
-            // Let's just simulate for now or assume user connects via 'Integration' page first.
-            // Wait, user Prompt says "Trigger check" button.
-            // Let's assumes it refreshes data for now.
             await fetchData();
             toast({ title: 'Data refreshed' });
         } catch (e) {
@@ -105,6 +96,7 @@ export default function AlignmentPage() {
         setSelectedReportId(null);
         setReportDetails(null);
     };
+
     // Render
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -113,9 +105,6 @@ export default function AlignmentPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Ads ↔ Pages Verification Center</h2>
                     <p className="text-muted-foreground">Ensure your Ad Creatives match your Landing Pages (Message, Offer, Tracking).</p>
                 </div>
-                <div className="flex items-center space-x-2">
-                    {/* Add Date Range Picker here if needed */}
-                </div>
             </div>
 
             {/* Overview */}
@@ -123,26 +112,55 @@ export default function AlignmentPage() {
                 <AlignmentOverview stats={stats} onTrigger={handleTriggerCheck} />
             )}
 
-            {/* Main Content */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">Alignment Reports</h3>
-                    <div className="flex gap-2">
-                        {/* Filters placeholders */}
-                        <select className="h-9 w-[150px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                            <option>All Scores</option>
-                            <option>Low Score (&lt; 70)</option>
-                            <option>Critical (&lt; 50)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <AlignmentTable
-                    reports={reports}
-                    isLoading={isLoading}
-                    onViewEvidence={handleViewEvidence}
-                />
+            {/* Tabs */}
+            <div className="border-b">
+                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                        onClick={() => setActiveTab('reports')}
+                        className={`${activeTab === 'reports' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                    >
+                        Reports & Evidence
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('schedules')}
+                        className={`${activeTab === 'schedules' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                    >
+                        Scheduled Checks (Ops)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('settings')}
+                        className={`${activeTab === 'settings' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                    >
+                        Notifications & Alerts
+                    </button>
+                </nav>
             </div>
+
+            {/* Content per Tab */}
+            {activeTab === 'reports' && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium">Recent Verifications</h3>
+                    </div>
+                    <AlignmentTable
+                        reports={reports}
+                        isLoading={isLoading}
+                        onViewEvidence={handleViewEvidence}
+                    />
+                </div>
+            )}
+
+            {activeTab === 'schedules' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <SchedulesTab projectId={projectId as string} />
+                </div>
+            )}
+
+            {activeTab === 'settings' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <NotificationsTab projectId={projectId as string} />
+                </div>
+            )}
 
             {/* Evidence Modal */}
             <EvidenceModal

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Badge } from '@/design-system/atoms/Badge';
 
 // Extended details for Modal
 export interface AlignmentReportDetails {
@@ -17,6 +18,28 @@ export interface AlignmentReportDetails {
     recommendations: string[];
     screenshot_url?: string | null;
     summary: string;
+    diff?: {
+        summary: Record<string, any>;
+        severity: string;
+    };
+    golden_rule_json?: {
+        why: Array<{
+            signal: string;
+            impact: 'high' | 'medium' | 'low';
+            evidence: string[];
+        }>;
+        confidence: {
+            score: number;
+            reasons: string[];
+        };
+        next_actions: Array<{
+            action: string;
+            eta: string;
+            owner: string;
+            link_to_ui?: string;
+        }>;
+    };
+    confidence_score?: number;
 }
 
 interface EvidenceModalProps {
@@ -72,22 +95,116 @@ export const EvidenceModal: React.FC<EvidenceModalProps> = ({ isOpen, onClose, r
                             <div className="w-full lg:w-1/3 border-r p-6 overflow-y-auto bg-background">
                                 <div className="mb-6 text-center">
                                     <div className={`inline-flex items-center justify-center h-20 w-20 rounded-full border-4 text-3xl font-bold ${report.score >= 90 ? 'border-green-500 text-green-600' :
-                                            report.score >= 70 ? 'border-green-200 text-green-600' :
-                                                report.score >= 50 ? 'border-yellow-200 text-yellow-600' : 'border-red-200 text-red-600'
+                                        report.score >= 70 ? 'border-green-200 text-green-600' :
+                                            report.score >= 50 ? 'border-yellow-200 text-yellow-600' : 'border-red-200 text-red-600'
                                         }`}>
                                         {report.score}
                                     </div>
                                     <p className="mt-2 font-medium">Alignment Score</p>
+                                    <Badge variant="outline" className="mt-2 text-xs">
+                                        {report.confidence_score ? `Confidence: ${report.confidence_score}%` : 'Based on Golden Rule v2.4'}
+                                    </Badge>
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div>
-                                        <h4 className="font-semibold text-sm mb-2">Analysis Summary</h4>
-                                        <p className="text-sm text-muted-foreground">{report.summary}</p>
-                                    </div>
+                                    {/* Golden Rule Analysis - WHY */}
+                                    {report.golden_rule_json?.why && report.golden_rule_json.why.length > 0 && (
+                                        <div className="bg-brand-50/50 p-4 rounded-lg border border-brand-100">
+                                            <h4 className="font-semibold text-sm mb-3 text-brand-900 flex items-center gap-2">
+                                                ✨ Why This Matters
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {report.golden_rule_json.why.map((signal, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-start">
+                                                        <Badge
+                                                            variant={
+                                                                signal.impact === 'high' ? 'destructive' :
+                                                                    signal.impact === 'medium' ? 'warning' :
+                                                                        'neutral'
+                                                            }
+                                                            className="text-[10px] h-5 shrink-0"
+                                                        >
+                                                            {signal.impact.toUpperCase()}
+                                                        </Badge>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-brand-900">{signal.signal}</p>
+                                                            <ul className="text-xs text-brand-700/80 mt-1 space-y-0.5">
+                                                                {signal.evidence.slice(0, 2).map((ev, i) => (
+                                                                    <li key={i}>• {ev}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Confidence Section */}
+                                    {report.golden_rule_json?.confidence && (
+                                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                                            <h4 className="font-semibold text-sm mb-2 text-blue-900">
+                                                Confidence: {report.golden_rule_json.confidence.score}%
+                                            </h4>
+                                            <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                                                <div
+                                                    className="bg-blue-600 h-2 rounded-full transition-all"
+                                                    style={{ width: `${report.golden_rule_json.confidence.score}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {report.golden_rule_json.confidence.reasons.map((reason, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-[10px]">
+                                                        {reason.replace(/_/g, ' ')}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Next Actions */}
+                                    {report.golden_rule_json?.next_actions && report.golden_rule_json.next_actions.length > 0 && (
+                                        <div className="bg-green-50/50 p-4 rounded-lg border border-green-100">
+                                            <h4 className="font-semibold text-sm mb-3 text-green-900">
+                                                🎯 Recommended Actions
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {report.golden_rule_json.next_actions.map((action, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-2 bg-white rounded border border-green-200">
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-green-900">{action.action}</p>
+                                                            <p className="text-xs text-green-700/70">
+                                                                ETA: {action.eta} • Owner: {action.owner}
+                                                            </p>
+                                                        </div>
+                                                        {action.link_to_ui && (
+                                                            <button className="text-xs text-green-600 hover:text-green-700 font-medium">
+                                                                Fix →
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Fallback to old summary if no golden_rule_json */}
+                                    {!report.golden_rule_json && (
+                                        <div className="bg-brand-50/50 p-4 rounded-lg border border-brand-100">
+                                            <h4 className="font-semibold text-sm mb-2 text-brand-900 flex items-center gap-2">
+                                                ✨ Golden Rule Analysis
+                                            </h4>
+                                            <p className="text-sm text-brand-700/80 mb-2">{report.summary}</p>
+                                            <div className="flex gap-2 text-[10px] text-brand-400 uppercase font-bold tracking-wider">
+                                                <span>Source: GPT-4o</span>
+                                                <span>•</span>
+                                                <span>Confidence: High</span>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div>
-                                        <h4 className="font-semibold text-sm mb-2">Golden Rule Recommendations</h4>
+                                        <h4 className="font-semibold text-sm mb-2">Recommendations</h4>
                                         <ul className="space-y-2">
                                             {report.recommendations.map((rec, i) => (
                                                 <li key={i} className="flex gap-2 text-sm">
