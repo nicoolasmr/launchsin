@@ -54,8 +54,7 @@ CREATE POLICY tracking_fix_packs_viewer_read ON tracking_fix_packs
         project_id IN (
             SELECT pm.project_id 
             FROM project_members pm 
-            WHERE pm.user_id = auth.uid() 
-            AND pm.is_active = true
+            WHERE pm.user_id = auth.uid()
         )
     );
 
@@ -68,7 +67,6 @@ CREATE POLICY tracking_fix_packs_admin_create ON tracking_fix_packs
             FROM project_members pm 
             WHERE pm.user_id = auth.uid() 
             AND pm.role IN ('admin', 'owner')
-            AND pm.is_active = true
         )
     );
 
@@ -117,8 +115,7 @@ CREATE POLICY page_snapshot_diffs_viewer_read ON page_snapshot_diffs
         project_id IN (
             SELECT pm.project_id 
             FROM project_members pm 
-            WHERE pm.user_id = auth.uid() 
-            AND pm.is_active = true
+            WHERE pm.user_id = auth.uid()
         )
     );
 
