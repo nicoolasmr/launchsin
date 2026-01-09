@@ -20,6 +20,10 @@
     "check:workers": "cd workers && npm run check",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:ci": "npm run test:server && npm run test:workers",
+    "test:server": "cd server && npm test -- --coverage",
+    "test:workers": "cd workers && npm test -- --coverage",
+    "test:coverage": "npm run test:ci && echo 'Coverage reports in server/coverage and workers/coverage'",
     "audit:pii": "node scripts/audit-pii.js"
   },
   "devDependencies": {

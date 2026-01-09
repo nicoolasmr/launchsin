@@ -9,6 +9,21 @@ on:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: launchsin_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -27,11 +42,26 @@ jobs:
       - name: Run PII Security Audit
         run: npm run audit:pii
 
-      - name: Run Server Security Tests (Leak Gate)
-        run: cd server && npm test
-
-      - name: Run Server Preflight (Dry Run)
+      - name: Run Server Tests with Coverage
+        env:
+          SUPABASE_URL: https://mock.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: mock_key_for_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/launchsin_test
         run: |
-          export NODE_ENV=test
-          export PORT=3001
-          npx tsx server/scripts/preflight.ts
+          cd server
+          npm test -- --coverage --coverageThreshold='{"global":{"lines":80,"statements":80,"functions":75,"branches":70}}'
+
+      - name: Run Workers Tests with Coverage
+        env:
+          SUPABASE_URL: https://mock.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: mock_key_for_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/launchsin_test
+        run: |
+          cd workers
+          npm test -- --coverage --coverageThreshold='{"global":{"lines":70,"statements":70,"functions":65,"branches":60}}'
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./server/coverage/lcov.info,./workers/coverage/lcov.info
+          flags: unittests
