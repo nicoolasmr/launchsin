@@ -116,18 +116,17 @@ export class HomeActionsService {
             utm_params: false
         };
 
-        const fixPackId = await trackingFixService.buildFixPack(
+        const fixPack = trackingFixService.buildFixPack(
             detection,
             payload.page_url,
-            projectId,
-            orgId
+            projectId
         );
 
         return {
             summary: `Fix pack generated for ${payload.page_url}`,
             deep_link: `/projects/${projectId}/integrations/alignment?tab=fixpacks`,
             entity_type: 'fix_pack',
-            entity_id: fixPackId || 'unknown'
+            entity_id: 'generated'
         };
     }
 
