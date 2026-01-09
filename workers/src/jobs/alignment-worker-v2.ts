@@ -1,187 +1,141 @@
+import { BaseJob } from '../shared/base-job';
+import { logger } from '../infra/structured-logger';
+import { supabase } from '../infra/supabase';
+import { AlignmentOps } from '../domain/alignment-ops';
 
-import { createClient } from '@supabase/supabase-js';
-import Redis from 'ioredis';
-import { logger } from '../utils/logger';
-import { PageExtractor } from '../infra/page-extractor';
-import { withPage } from '../infra/browser';
-import { MetaCreativeFetch } from '../infra/meta-creative-fetch';
-import { alignmentScorer } from '../domain/alignment-scorer';
-import { secretsManager } from '../shared/secrets';
-import { v4 as uuidv4 } from 'uuid';
-
-// Supabase Service Role (Module Level for ease of use in methods)
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const CHECK_INTERVAL_MS = 10000;
-
-export class AlignmentWorkerV2 {
+export class AlignmentWorkerV2 extends BaseJob {
     private isRunning = false;
-    private redis: Redis;
 
     constructor() {
-        this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+        super('alignment_v2_worker');
     }
 
     async start() {
-        logger.info('Starting AlignmentWorkerV2...');
-        setInterval(() => this.loop(), CHECK_INTERVAL_MS);
-    }
-
-    async loop() {
-        if (this.isRunning) return;
-        this.isRunning = true;
-
-        try {
-            // Leader Election (Simple)
-            const isLeader = await this.acquireLock('alignment_v2_leader', 15); // 15s ttl
-            if (!isLeader) {
-                // Not leader, idle
-                return;
-            }
-
-            // Fetch Queued Jobs
-            // Limit concurrency per org??
-            // Simplified: Fetch 10 queued jobs.
-            const { data: jobs, error } = await supabase
-                .from('alignment_jobs')
-                .select('*')
-                .eq('status', 'queued')
-                .limit(10)
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
-            if (!jobs || jobs.length === 0) return;
-
-            // Process Parallel
-            await Promise.all(jobs.map(job => this.processJob(job)));
-
-        } catch (error: any) {
-            logger.error('AlignmentWorker V2 Loop Error', { error: error.message });
-        } finally {
-            this.isRunning = false;
-        }
-    }
-
-    async processJob(jobId: string) {
-        const correlationId = `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        // 2. DB LEASE CLAIM
-        const claimed = await alignmentOps.claimJobWithLease(jobId, this.workerId);
-        if (!claimed) {
-            logger.warn('Failed to claim job lease', { jobId, correlation_id: correlationId });
+        if (this.isRunning) {
+            logger.warn('AlignmentWorkerV2 already running');
             return;
         }
 
-        // Update job with correlation_id
-        await supabase
-            .from('alignment_jobs')
-            .update({ correlation_id: correlationId })
-            .eq('id', jobId);
+        this.isRunning = true;
+        logger.info('AlignmentWorkerV2 started');
 
-        try {
-            // 3. Mark Running
-            await supabase.from('alignment_jobs').update({ status: 'running' }).eq('id', jobId);
-
-            // 2. Fetch Secrets (Token)
-            const token = await this.getAccessToken(job.source_connection_id, orgId);
-
-            // 3. Fetch Ad
-            const ad = await MetaCreativeFetch.fetch(job.ad_id, token);
-
-            // 4. Scrape Page
-            const snapshot = await withPage(async (page) => {
-                await page.goto(job.landing_url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                return await PageExtractor.extract(page, job.landing_url);
-            });
-
-            // 5. Upload Screenshot
-            let screenshotPath = null;
-            if (snapshot.screenshotBuffer) {
-                const path = `${orgId}/${job.project_id}/${job.ad_id}_${Date.now()}.jpg`;
-                const { error: uploadError } = await supabase.storage
-                    .from('alignment')
-                    .upload(path, snapshot.screenshotBuffer, { contentType: 'image/jpeg' });
-
-                if (!uploadError) screenshotPath = path;
-                else logger.error('Screenshot upload failed', { error: uploadError });
+        while (this.isRunning) {
+            try {
+                await this.pollAndProcess();
+                await this.sleep(5000); // Poll every 5s
+            } catch (error: any) {
+                logger.error('AlignmentWorkerV2 error', { error: error.message });
+                await this.sleep(10000); // Back off on error
             }
-
-            // 6. Score
-            const report = await alignmentScorer.score(ad, snapshot);
-
-            // 7. Save Report
-            const { data: reportRows, error: reportError } = await supabase
-                .from('alignment_reports_v2')
-                .insert({
-                    org_id: orgId,
-                    project_id: job.project_id,
-                    source_connection_id: job.source_connection_id,
-                    ad_id: job.ad_id,
-                    landing_url: job.landing_url,
-                    score: report.score,
-                    dimensions: report.dimensions,
-                    evidence: report.evidence,
-                    recommendations: report.recommendations,
-                    confidence_score: report.confidence,
-                    model_info: report.model_info
-                })
-                .select('id')
-                .single();
-
-            if (reportError) throw reportError;
-            const reportId = reportRows.id;
-
-            // 8. Save Snapshot Metadata
-            await supabase.from('page_snapshots').insert({
-                org_id: orgId,
-                project_id: job.project_id,
-                url: job.landing_url,
-                content_text: snapshot.contentText,
-                meta: { ...snapshot.meta, ctas: snapshot.ctas, h1: snapshot.h1 },
-                screenshot_path: screenshotPath
-            });
-
-            // 9. Create Alerts if needed
-            if (report.score < 70) {
-                await supabase.from('alignment_alerts').insert({
-                    org_id: orgId,
-                    project_id: job.project_id,
-                    severity: report.score < 50 ? 'high' : 'med',
-                    type: 'low_score',
-                    message: `Low Alignment Score: ${report.score}`,
-                    report_id: reportId
-                });
-            }
-
-            // 10. Mark Success
-            await supabase.from('alignment_jobs').update({ status: 'success' }).eq('id', jobId);
-
-        } catch (error: any) {
-            logger.error(`Job ${jobId} failed`, { error: error.message });
-            await supabase.from('alignment_jobs').update({ status: 'failed' }).eq('id', jobId);
         }
     }
 
-    private async acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
-        const result = await this.redis.set(key, 'locked', 'EX', ttlSeconds, 'NX');
-        return result === 'OK';
+    async stop() {
+        this.isRunning = false;
+        logger.info('AlignmentWorkerV2 stopped');
     }
 
-    private async getAccessToken(connectionId: string, orgId: string): Promise<string> {
-        const keyName = `meta_token_${connectionId}`;
-        const { data } = await supabase
-            .from('secret_refs')
-            .select('secret_id_ref')
-            .eq('key_name', keyName)
-            .eq('org_id', orgId)
-            .single();
+    private async pollAndProcess() {
+        const { data: jobs } = await supabase
+            .from('alignment_jobs')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true })
+            .limit(1);
 
-        if (!data) throw new Error(`Token not found for connection ${connectionId}`);
-        return secretsManager.decrypt(data.secret_id_ref);
+        if (!jobs || jobs.length === 0) {
+            return;
+        }
+
+        const job = jobs[0];
+        await this.processJob(job);
+    }
+
+    private async processJob(job: any) {
+        const jobId = job.id;
+        const correlationId = `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        logger.info('Starting job processing', { jobId, correlation_id: correlationId });
+
+        // Update job with correlation_id and started_at
+        await supabase
+            .from('alignment_jobs')
+            .update({
+                correlation_id: correlationId,
+                started_at: new Date().toISOString(),
+                status: 'running'
+            })
+            .eq('id', jobId);
+
+        try {
+            // Process the alignment job
+            const ops = new AlignmentOps();
+
+            // Fetch schedule details
+            const { data: schedule } = await supabase
+                .from('alignment_schedules')
+                .select('*')
+                .eq('id', job.schedule_id)
+                .single();
+
+            if (!schedule) {
+                throw new Error('Schedule not found');
+            }
+
+            // Process each target URL
+            for (const url of schedule.target_urls_json || []) {
+                logger.info('Processing URL', { url, jobId, correlation_id: correlationId });
+
+                // Scrape page
+                const snapshot = await ops.scrapePage(url);
+
+                // Score alignment
+                const report = await ops.scoreAlignment({
+                    org_id: job.org_id,
+                    project_id: job.project_id,
+                    schedule_id: job.schedule_id,
+                    landing_url: url,
+                    ad_id: job.ad_id || 'unknown',
+                    snapshot
+                });
+
+                // Dispatch alerts if needed
+                await ops.dispatchAlerts(report);
+
+                logger.info('URL processed successfully', { url, reportId: report.id, correlation_id: correlationId });
+            }
+
+            // Mark job as completed
+            await supabase
+                .from('alignment_jobs')
+                .update({
+                    status: 'completed',
+                    finished_at: new Date().toISOString()
+                })
+                .eq('id', jobId);
+
+            logger.info('Job completed successfully', { jobId, correlation_id: correlationId });
+
+        } catch (error: any) {
+            logger.error('Job processing failed', {
+                jobId,
+                error: error.message,
+                correlation_id: correlationId
+            });
+
+            // Mark job as failed
+            await supabase
+                .from('alignment_jobs')
+                .update({
+                    status: 'failed',
+                    error_message_redacted: error.message.substring(0, 500),
+                    finished_at: new Date().toISOString()
+                })
+                .eq('id', jobId);
+        }
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
-
-export const alignmentWorkerV2 = new AlignmentWorkerV2();
