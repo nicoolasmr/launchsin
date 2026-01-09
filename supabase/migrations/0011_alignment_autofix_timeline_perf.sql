@@ -15,7 +15,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS tracking_fix_packs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     page_url text NOT NULL,
     
@@ -79,7 +79,7 @@ CREATE POLICY tracking_fix_packs_admin_create ON tracking_fix_packs
 
 CREATE TABLE IF NOT EXISTS page_snapshot_diffs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     
     prev_snapshot_id uuid REFERENCES page_snapshots(id) ON DELETE SET NULL,
