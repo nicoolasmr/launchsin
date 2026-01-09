@@ -62,15 +62,15 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
 
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- SELECT: Org members can read (viewer+)
+-- SELECT: Project members can read (viewer+)
 DROP POLICY IF EXISTS audit_logs_select ON audit_logs;
 CREATE POLICY audit_logs_select ON audit_logs
     FOR SELECT
     USING (
-        org_id IN (
-            SELECT om.org_id 
-            FROM org_members om 
-            WHERE om.user_id = auth.uid()
+        project_id IN (
+            SELECT pm.project_id 
+            FROM project_members pm 
+            WHERE pm.user_id = auth.uid()
         )
     );
 
@@ -79,11 +79,11 @@ DROP POLICY IF EXISTS audit_logs_insert ON audit_logs;
 CREATE POLICY audit_logs_insert ON audit_logs
     FOR INSERT
     WITH CHECK (
-        org_id IN (
-            SELECT om.org_id 
-            FROM org_members om 
-            WHERE om.user_id = auth.uid() 
-            AND om.role IN ('admin', 'owner')
+        project_id IN (
+            SELECT pm.project_id 
+            FROM project_members pm 
+            WHERE pm.user_id = auth.uid() 
+            AND pm.role IN ('admin', 'owner')
         )
     );
 
