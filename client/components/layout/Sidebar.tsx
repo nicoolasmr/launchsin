@@ -10,13 +10,12 @@ import {
     BrainCircuit
 } from 'lucide-react';
 
-const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { label: 'Infrastructure', icon: Database, href: '/infra' },
-    { label: 'Automations', icon: Workflow, href: '/automations' },
-    { label: 'AI Models', icon: BrainCircuit, href: '/ai' },
-    { label: 'Security', icon: ShieldCheck, href: '/security' },
-    { label: 'Settings', icon: Settings, href: '/settings' },
+const navigation = [
+    { name: 'Projects', href: '/projects', icon: '📁' },
+    { name: 'Campaigns', href: '/campaigns', icon: '📢' },
+    { name: 'Analytics', href: '/analytics', icon: '📊' },
+    { name: 'Integrations', href: '/integrations', icon: '🔌' },
+    { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 
 export const Sidebar = () => {
