@@ -13,7 +13,7 @@ interface PageSnapshot {
     created_at: string;
 }
 
-interface DiffResult {
+interface DiffData {
     title?: { old: string; new: string };
     h1?: { old: string[]; new: string[] };
     ctas?: { old: string[]; new: string[] };
@@ -35,7 +35,7 @@ export class TimelineService {
         projectId: string,
         orgId: string
     ): Promise<string> {
-        const diffJson: DiffResult = {};
+        const diffData: DiffData = {};
         const changes: string[] = [];
 
         // Title diff
@@ -86,7 +86,10 @@ export class TimelineService {
         }
 
         // Save diff
-        const diffSummary = changes.join(', ') || 'No significant changes';
+        const diffSummary = {
+            changes: changes,
+            summary: changes.join(', ') || 'No significant changes'
+        };
 
         const { data, error } = await supabase
             .from('page_snapshot_diffs')
@@ -94,10 +97,10 @@ export class TimelineService {
                 id: uuidv4(),
                 org_id: orgId,
                 project_id: projectId,
-                prev_snapshot_id: prevSnapshot.id,
-                next_snapshot_id: nextSnapshot.id,
-                diff_json: diffJson,
+                previous_snapshot_id: prevSnapshot.id,
+                current_snapshot_id: nextSnapshot.id,
                 diff_summary: diffSummary,
+                severity: changes.length > 3 ? 'high' : changes.length > 1 ? 'medium' : 'low',
                 created_at: new Date().toISOString()
             })
             .select('id')
@@ -110,8 +113,8 @@ export class TimelineService {
 
         logger.info('Diff generated', {
             project_id: projectId,
-            prev_snapshot_id: prevSnapshot.id,
-            next_snapshot_id: nextSnapshot.id,
+            previous_snapshot_id: prevSnapshot.id,
+            current_snapshot_id: nextSnapshot.id,
             diff_id: data.id,
             changes_count: changes.length
         });
