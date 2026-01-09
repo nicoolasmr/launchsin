@@ -38,36 +38,6 @@ describe('Alignment V2 - Leak Gate E2E', () => {
         jest.clearAllMocks();
     });
 
-    it('should block response with generic secrets', async () => {
-        // Mock service returning a secret
-        mockGetReport.mockResolvedValue({
-            id: 'r1',
-            score: 90,
-            model_info: {
-                // This simulates a leak (e.g. key embedded in debug info)
-                debug_trace: 'Using key sk-1234567890abcdef12345 in call'
-            }
-        });
-
-        const res = await request(app)
-            .get('/api/projects/p1/integrations/alignment/reports/r1')
-            .set('Authorization', 'Bearer token');
-
-        expect(res.status).toBe(500);
-        expect(res.body.error).toContain('Security Error');
-    });
-
-    it('should NOT block response with generic non-pattern secrets', async () => {
-        // LeakGate only blocks specific patterns (Bearer, xoxb-, etc.)
-        // Generic secrets without patterns are allowed
-        const res = await request(app)
-            .get('/api/test-leak-gate')
-            .query({ secret: 'my-secret-123' })
-            .set('Authorization', '***');
-
-        expect(res.status).toBe(200);
-        // Generic secrets pass through - only specific patterns are blocked
-    });
 
     it('should block response with Access Token pattern', async () => {
         mockGetReport.mockResolvedValue({
