@@ -188,7 +188,18 @@ router.get(
                     title: `Low alignment score (${report.alignment_score}%)`,
                     why: `Page ${report.page_url} has critical misalignment with ad creative`,
                     confidence: report.alignment_score,
-                    next_actions: ['View Evidence', 'Generate Fix Pack'],
+                    next_actions: [
+                        {
+                            label: 'Generate Fix Pack',
+                            action_type: 'GENERATE_FIX_PACK',
+                            payload: { page_url: report.page_url }
+                        },
+                        {
+                            label: 'Trigger Alignment Check',
+                            action_type: 'TRIGGER_ALIGNMENT_CHECK',
+                            payload: { page_url: report.page_url }
+                        }
+                    ],
                     deep_links: [`/projects/${report.project_id}/integrations/alignment?filter=critical`]
                 });
             });
@@ -211,7 +222,23 @@ router.get(
                     title: 'Tracking pixel missing',
                     why: `Page ${alert.page_url} is missing critical tracking pixels`,
                     confidence: 100,
-                    next_actions: ['Generate Fix Pack', 'Verify Tracking'],
+                    next_actions: [
+                        {
+                            label: 'Generate Fix Pack',
+                            action_type: 'GENERATE_FIX_PACK',
+                            payload: { page_url: alert.page_url }
+                        },
+                        {
+                            label: 'Verify Tracking',
+                            action_type: 'VERIFY_TRACKING',
+                            payload: { page_url: alert.page_url }
+                        },
+                        {
+                            label: 'Resolve Alert',
+                            action_type: 'RESOLVE_ALERT',
+                            payload: { alert_id: alert.id }
+                        }
+                    ],
                     deep_links: [`/projects/${alert.project_id}/integrations/alignment?tab=fixpacks`]
                 });
             });
@@ -231,7 +258,7 @@ router.get(
                     title: `${dlqCount} events in DLQ`,
                     why: 'Integration sync failures are accumulating',
                     confidence: null,
-                    next_actions: ['View DLQ', 'Retry Failed'],
+                    next_actions: [],
                     deep_links: ['/integrations/dlq']
                 });
             }

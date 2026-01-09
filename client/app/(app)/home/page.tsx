@@ -13,6 +13,12 @@ interface OverviewData {
     ops_summary: { dlq_pending: number; alerts_open: number };
 }
 
+interface NextAction {
+    label: string;
+    action_type: string;
+    payload: any;
+}
+
 interface Decision {
     id: string;
     type: string;
@@ -20,15 +26,27 @@ interface Decision {
     title: string;
     why: string;
     confidence: number | null;
-    next_actions: string[];
+    next_actions: NextAction[];
     deep_links: string[];
+}
+
+interface RecentAction {
+    id: string;
+    action_type: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    metadata: any;
+    created_at: string;
 }
 
 export default function HomePage() {
     const [overview, setOverview] = useState<OverviewData | null>(null);
     const [decisions, setDecisions] = useState<Decision[]>([]);
+    const [recentActions, setRecentActions] = useState<RecentAction[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [executingAction, setExecutingAction] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -52,10 +70,69 @@ export default function HomePage() {
 
             setOverview(overviewData);
             setDecisions(decisionsData);
+
+            // Fetch recent actions if we have projects
+            if (overviewData.total_projects > 0) {
+                await fetchRecentActions();
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchRecentActions = async () => {
+        try {
+            // Get first project_id from user's projects (simplified)
+            const projectsRes = await fetch('/projects');
+            if (projectsRes.ok) {
+                const projects = await projectsRes.json();
+                if (projects.length > 0) {
+                    const actionsRes = await fetch(`/api/home/actions/recent?project_id=${projects[0].id}&limit=5`);
+                    if (actionsRes.ok) {
+                        const actions = await actionsRes.json();
+                        setRecentActions(actions);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch recent actions:', err);
+        }
+    };
+
+    const executeAction = async (action: NextAction, projectId: string) => {
+        const actionKey = `${action.action_type}-${JSON.stringify(action.payload)}`;
+        setExecutingAction(actionKey);
+        setToast(null);
+
+        try {
+            const res = await fetch('/api/home/actions/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project_id: projectId,
+                    action_type: action.action_type,
+                    payload: action.payload
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Action failed');
+            }
+
+            setToast({ message: data.result.summary, type: 'success' });
+
+            // Refresh data after successful action
+            setTimeout(() => {
+                fetchData();
+            }, 1000);
+        } catch (err: any) {
+            setToast({ message: err.message, type: 'error' });
+        } finally {
+            setExecutingAction(null);
         }
     };
 
@@ -99,6 +176,18 @@ export default function HomePage() {
 
     return (
         <div className="p-8 space-y-6">
+            {/* Toast Notification */}
+            {toast && (
+                <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                    <div className="flex items-center gap-2">
+                        <span>{toast.type === 'success' ? '✅' : '❌'}</span>
+                        <span>{toast.message}</span>
+                        <button onClick={() => setToast(null)} className="ml-4 text-lg">×</button>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -184,11 +273,23 @@ export default function HomePage() {
                                         </h3>
                                         <p className="text-sm text-gray-600 mb-3">{decision.why}</p>
                                         <div className="flex gap-2 flex-wrap">
-                                            {decision.next_actions.map((action, idx) => (
-                                                <Button key={idx} size="sm" variant="secondary">
-                                                    {action}
-                                                </Button>
-                                            ))}
+                                            {decision.next_actions.map((action, idx) => {
+                                                const actionKey = `${action.action_type}-${JSON.stringify(action.payload)}`;
+                                                const isExecuting = executingAction === actionKey;
+
+                                                return (
+                                                    <Button
+                                                        key={idx}
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        onClick={() => executeAction(action, overview?.total_projects ? 'project-id' : '')}
+                                                        disabled={isExecuting}
+                                                    >
+                                                        {isExecuting ? '⏳ ' : ''}
+                                                        {action.label}
+                                                    </Button>
+                                                );
+                                            })}
                                             {decision.deep_links.map((link, idx) => (
                                                 <a key={idx} href={link}>
                                                     <Button size="sm" variant="secondary">
@@ -204,6 +305,28 @@ export default function HomePage() {
                     </div>
                 )}
             </Card>
+
+            {/* Recent Actions */}
+            {recentActions.length > 0 && (
+                <Card className="p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">📋 Recent Actions</h2>
+                    <div className="space-y-2">
+                        {recentActions.map(action => (
+                            <div key={action.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                <div>
+                                    <span className="font-medium text-gray-900">{action.action_type.replace(/_/g, ' ')}</span>
+                                    {action.entity_type && (
+                                        <span className="text-sm text-gray-500 ml-2">({action.entity_type})</span>
+                                    )}
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                    {new Date(action.created_at).toLocaleString()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
 
             {/* CRM Summary */}
             {overview?.crm_summary && (
