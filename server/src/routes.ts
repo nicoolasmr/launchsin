@@ -26,6 +26,7 @@ import crmRouter from './routes/crm';
 import { alignmentV2Router } from './routes/api/alignment-v2';
 import alignmentOpsRouter from './routes/api/alignment-ops';
 import trackingFixRouter from './routes/api/tracking-fix';
+import timelineRouter from './routes/api/timeline';
 
 const router = Router();
 
@@ -85,6 +86,7 @@ router.use(authMiddleware);
 router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentV2Router);
 router.use('/projects/:projectId/integrations/alignment', validateProjectAccess, alignmentOpsRouter);
 router.use(trackingFixRouter);
+router.use(timelineRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {

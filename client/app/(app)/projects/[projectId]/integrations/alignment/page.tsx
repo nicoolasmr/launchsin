@@ -30,13 +30,14 @@ const api = {
 import { SchedulesTab } from '@/components/alignment/SchedulesTab';
 import { NotificationsTab } from '@/components/alignment/NotificationsTab';
 import { FixPacksTab } from '@/components/alignment/FixPacksTab';
+import { TimelineTab } from '@/components/alignment/TimelineTab';
 
 export default function AlignmentPage() {
     const { projectId } = useParams();
     const { toast } = useToast();
 
     // State
-    const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'fixpacks' | 'settings'>('reports');
+    const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'fixpacks' | 'timeline' | 'settings'>('reports');
     const [stats, setStats] = useState<any>(null);
     const [reports, setReports] = useState<AlignmentReportUI[]>([]);
     const [isLoading, setIsLoading] = useState(true);

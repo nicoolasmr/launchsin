@@ -1,0 +1,195 @@
+import { supabase } from '../infra/db';
+import { logger } from '../infra/structured-logger';
+import { v4 as uuidv4 } from 'uuid';
+
+interface PageSnapshot {
+    id: string;
+    url: string;
+    title?: string;
+    h1?: string[];
+    ctas?: string[];
+    content_text?: string;
+    meta?: any;
+    created_at: string;
+}
+
+interface DiffResult {
+    title?: { old: string; new: string };
+    h1?: { old: string[]; new: string[] };
+    ctas?: { old: string[]; new: string[] };
+    tracking?: {
+        meta_pixel?: { old: boolean; new: boolean };
+        gtm?: { old: boolean; new: boolean };
+        ga4?: { old: boolean; new: boolean };
+    };
+}
+
+export class TimelineService {
+
+    /**
+     * Generate diff between two snapshots
+     */
+    async generateDiff(
+        prevSnapshot: PageSnapshot,
+        nextSnapshot: PageSnapshot,
+        projectId: string,
+        orgId: string
+    ): Promise<string> {
+        const diffJson: DiffResult = {};
+        const changes: string[] = [];
+
+        // Title diff
+        if (prevSnapshot.title !== nextSnapshot.title) {
+            diffJson.title = {
+                old: prevSnapshot.title || '',
+                new: nextSnapshot.title || ''
+            };
+            changes.push('Title changed');
+        }
+
+        // H1 diff
+        const prevH1 = prevSnapshot.h1 || [];
+        const nextH1 = nextSnapshot.h1 || [];
+        if (JSON.stringify(prevH1) !== JSON.stringify(nextH1)) {
+            diffJson.h1 = { old: prevH1, new: nextH1 };
+            changes.push('H1 changed');
+        }
+
+        // CTA diff
+        const prevCtas = prevSnapshot.ctas || [];
+        const nextCtas = nextSnapshot.ctas || [];
+        if (JSON.stringify(prevCtas) !== JSON.stringify(nextCtas)) {
+            diffJson.ctas = { old: prevCtas, new: nextCtas };
+            changes.push('CTA changed');
+        }
+
+        // Tracking diff
+        const prevTracking = this.detectTracking(prevSnapshot);
+        const nextTracking = this.detectTracking(nextSnapshot);
+
+        const trackingChanges: any = {};
+        if (prevTracking.meta_pixel !== nextTracking.meta_pixel) {
+            trackingChanges.meta_pixel = { old: prevTracking.meta_pixel, new: nextTracking.meta_pixel };
+            changes.push(nextTracking.meta_pixel ? 'Meta Pixel added' : 'Meta Pixel removed');
+        }
+        if (prevTracking.gtm !== nextTracking.gtm) {
+            trackingChanges.gtm = { old: prevTracking.gtm, new: nextTracking.gtm };
+            changes.push(nextTracking.gtm ? 'GTM added' : 'GTM removed');
+        }
+        if (prevTracking.ga4 !== nextTracking.ga4) {
+            trackingChanges.ga4 = { old: prevTracking.ga4, new: nextTracking.ga4 };
+            changes.push(nextTracking.ga4 ? 'GA4 added' : 'GA4 removed');
+        }
+
+        if (Object.keys(trackingChanges).length > 0) {
+            diffJson.tracking = trackingChanges;
+        }
+
+        // Save diff
+        const diffSummary = changes.join(', ') || 'No significant changes';
+
+        const { data, error } = await supabase
+            .from('page_snapshot_diffs')
+            .insert({
+                id: uuidv4(),
+                org_id: orgId,
+                project_id: projectId,
+                prev_snapshot_id: prevSnapshot.id,
+                next_snapshot_id: nextSnapshot.id,
+                diff_json: diffJson,
+                diff_summary: diffSummary,
+                created_at: new Date().toISOString()
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            logger.error('Failed to save diff', { error: error.message });
+            throw error;
+        }
+
+        logger.info('Diff generated', {
+            project_id: projectId,
+            prev_snapshot_id: prevSnapshot.id,
+            next_snapshot_id: nextSnapshot.id,
+            diff_id: data.id,
+            changes_count: changes.length
+        });
+
+        return data.id;
+    }
+
+    /**
+     * Get timeline for a page URL
+     */
+    async getTimeline(projectId: string, pageUrl: string) {
+        const { data: diffs, error } = await supabase
+            .from('page_snapshot_diffs')
+            .select(`
+                *,
+                prev_snapshot:page_snapshots!prev_snapshot_id(*),
+                next_snapshot:page_snapshots!next_snapshot_id(*)
+            `)
+            .eq('project_id', projectId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) {
+            logger.error('Failed to fetch timeline', { error: error.message });
+            throw error;
+        }
+
+        // Filter by page URL if provided
+        const filtered = pageUrl
+            ? diffs?.filter(d =>
+                d.prev_snapshot?.url === pageUrl ||
+                d.next_snapshot?.url === pageUrl
+            )
+            : diffs;
+
+        return filtered || [];
+    }
+
+    /**
+     * Auto-generate diff when new snapshot is created
+     */
+    async autoGenerateDiff(
+        newSnapshot: PageSnapshot,
+        projectId: string,
+        orgId: string
+    ): Promise<string | null> {
+        // Find previous snapshot for same URL
+        const { data: prevSnapshots } = await supabase
+            .from('page_snapshots')
+            .select('*')
+            .eq('project_id', projectId)
+            .eq('url', newSnapshot.url)
+            .neq('id', newSnapshot.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (!prevSnapshots || prevSnapshots.length === 0) {
+            logger.info('No previous snapshot found, skipping diff generation');
+            return null;
+        }
+
+        const prevSnapshot = prevSnapshots[0];
+        return await this.generateDiff(prevSnapshot, newSnapshot, projectId, orgId);
+    }
+
+    /**
+     * Detect tracking from snapshot
+     */
+    private detectTracking(snapshot: PageSnapshot) {
+        const text = (snapshot.content_text || '').toLowerCase();
+        const metaStr = JSON.stringify(snapshot.meta || {}).toLowerCase();
+
+        return {
+            meta_pixel: text.includes('fbq(') || text.includes('facebook pixel') || metaStr.includes('facebook'),
+            gtm: text.includes('gtm.js') || text.includes('googletagmanager'),
+            ga4: text.includes('gtag') || text.includes('google-analytics')
+        };
+    }
+}
+
+export const timelineService = new TimelineService();
