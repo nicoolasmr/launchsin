@@ -8,7 +8,7 @@
         "build": "tsc",
         "check": "tsc --noEmit",
         "start": "node dist/index.js",
-        "test": "npx jest",
+        "test": "npx jest --coverage",
         "lint": "eslint src/**/*.ts"
     },
     "jest": {
@@ -19,6 +19,14 @@
         ],
         "moduleNameMapper": {
             "^(\\.{1,2}/.*)\\.js$": "$1"
+        },
+        "coverageThreshold": {
+            "global": {
+                "lines": 25,
+                "statements": 25,
+                "functions": 15,
+                "branches": 10
+            }
         }
     },
     "dependencies": {
