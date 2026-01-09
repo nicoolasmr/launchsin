@@ -1,14 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import {
-    LayoutDashboard,
-    Database,
-    Workflow,
-    Settings,
-    ShieldCheck,
-    BrainCircuit
-} from 'lucide-react';
 
 const navigation = [
     { name: 'Projects', href: '/projects', icon: '📁' },
@@ -29,25 +21,25 @@ export const Sidebar = () => {
             </div>
 
             <nav className="mt-6 flex-1 space-y-1 px-3">
-                {navItems.map((item) => (
+                {navigation.map((item) => (
                     <Link
-                        key={item.label}
+                        key={item.name}
                         href={item.href}
                         className={cn(
                             "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all hover:bg-surface-100 dark:hover:bg-surface-900",
                             "text-surface-600 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white"
                         )}
                     >
-                        <item.icon className="mr-3 h-5 w-5 shrink-0" />
-                        {item.label}
+                        <span className="mr-3 text-lg">{item.icon}</span>
+                        {item.name}
                     </Link>
                 ))}
             </nav>
 
             <div className="absolute bottom-6 w-full px-6">
                 <div className="rounded-lg bg-brand-50/50 p-4 dark:bg-brand-950/10">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-600">Enterprise Plan</p>
-                    <p className="mt-1 text-xs text-surface-500">Multi-tenant enabled</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-600">User Plan</p>
+                    <p className="mt-1 text-xs text-surface-500">Marketing Suite</p>
                 </div>
             </div>
         </aside>
