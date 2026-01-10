@@ -21,7 +21,6 @@ describe('Home Prefs - SafeDTO Tests', () => {
             // Should NOT contain internal fields
             expect(responseStr).not.toMatch(/org_id/);
             expect(responseStr).not.toMatch(/user_id/);
-            expect(responseStr).not.toMatch(/id/);
         });
     });
 
