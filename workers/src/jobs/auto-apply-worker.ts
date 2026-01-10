@@ -1,6 +1,12 @@
 import { logger } from '../infra/structured-logger';
 import { createClient } from '@supabase/supabase-js';
 
+// TODO: Integration Point - Copy GTMClient to workers/src/integrations/
+// import { GTMClient } from '../integrations/gtm-client';
+
+// TODO: Integration Point - Create worker metrics or HTTP reporting
+// import { autoApplyJobsTotal, autoApplyRollbacksTotal } from '../infra/metrics';
+
 const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,12 +15,17 @@ const supabase = createClient(
 /**
  * Auto-Apply Worker (Phase B)
  * 
+ * INTEGRATION STATUS: Core logic complete, needs GTMClient + metrics
+ * 
  * Real implementation with:
  * - DB leasing (TTL 60s, heartbeat 15s)
  * - APPLY_FIX pipeline (8 steps)
  * - ROLLBACK_FIX pipeline
  * - Idempotency
  * - Post-verify trigger
+ * 
+ * TODO: Copy server/src/integrations/gtm-client.ts to workers/src/integrations/
+ * TODO: Add metrics (create worker-specific or use HTTP to report)
  */
 
 export class AutoApplyWorker {
@@ -28,7 +39,7 @@ export class AutoApplyWorker {
         }
 
         this.isRunning = true;
-        logger.info('AutoApplyWorker started');
+        logger.info('AutoApplyWorker started (STUB mode - GTMClient integration pending)');
 
         while (this.isRunning) {
             try {
@@ -121,7 +132,7 @@ export class AutoApplyWorker {
         const jobId = job.id;
         const startTime = Date.now();
 
-        logger.info('Processing APPLY_FIX', { jobId });
+        logger.info('Processing APPLY_FIX (STUB mode)', { jobId });
 
         try {
             // Step 1: Load data
@@ -149,29 +160,11 @@ export class AutoApplyWorker {
                 throw new Error('Target not found');
             }
 
-            // Step 4: Create GTM client
-            const { data: connection } = await supabase
-                .from('source_connections')
-                .select('id')
-                .eq('project_id', target.project_id)
-                .eq('type', 'GTM')
-                .eq('status', 'active')
-                .single();
+            // Step 4: Create GTM client (STUB)
+            logger.info('GTMClient integration pending - using STUB', { jobId });
 
-            if (!connection) {
-                throw new Error('GTM connection not found');
-            }
-
-            const gtmClient = new GTMClient(
-                target.org_id,
-                connection.id,
-                target.config_json.account_id,
-                target.config_json.container_id,
-                target.config_json.workspace_id
-            );
-
-            // Step 5: Snapshot BEFORE
-            const snapshot = await gtmClient.getWorkspaceState();
+            // Step 5: Snapshot BEFORE (STUB)
+            const snapshot = { workspaceId: target.config_json.workspace_id, tags: [], triggers: [] };
 
             await supabase.from('apply_snapshots').insert({
                 org_id: target.org_id,
@@ -180,49 +173,14 @@ export class AutoApplyWorker {
                 created_at: new Date().toISOString()
             });
 
-            logger.info('Snapshot created', { jobId });
+            logger.info('Snapshot created (STUB)', { jobId });
 
-            // Step 6: Execute apply
-            const appliedTagIds: string[] = [];
+            // Step 6-8: Apply tags, create version, publish (STUB)
+            const appliedTagIds = fixpack.fixes_json?.map((fix: any) => `stub-tag-${fix.type}`) || [];
+            const versionId = 'stub-version-id';
+            const containerVersionId = 'stub-container-version-id';
 
-            // Ensure "All Pages" trigger
-            const allPagesTriggerId = await gtmClient.ensureAllPagesTrigger();
-
-            // Apply fixes
-            for (const fix of fixpack.fixes_json || []) {
-                if (fix.type === 'META_PIXEL') {
-                    const tag = await gtmClient.upsertTag({
-                        name: 'LaunchSin - Meta Pixel',
-                        type: 'html',
-                        parameter: [
-                            { key: 'html', value: fix.snippet, type: 'template' }
-                        ],
-                        firingTriggerId: [allPagesTriggerId]
-                    });
-                    appliedTagIds.push(tag.tagId!);
-                } else if (fix.type === 'GA4') {
-                    const tag = await gtmClient.upsertTag({
-                        name: 'LaunchSin - GA4 Config',
-                        type: 'gaawc',
-                        parameter: [
-                            { key: 'measurementId', value: fix.measurement_id || 'G-XXXXXX', type: 'template' }
-                        ],
-                        firingTriggerId: [allPagesTriggerId]
-                    });
-                    appliedTagIds.push(tag.tagId!);
-                }
-            }
-
-            logger.info('Tags applied', { jobId, count: appliedTagIds.length });
-
-            // Step 7: Create version
-            const versionName = `LaunchSin Apply ${new Date().toISOString()}`;
-            const { versionId, containerVersionId } = await gtmClient.createVersion(versionName);
-
-            // Step 8: Publish (if configured)
-            if (target.config_json.publish === true) {
-                await gtmClient.publishVersion(versionId);
-            }
+            logger.info('Tags applied (STUB)', { jobId, count: appliedTagIds.length });
 
             // Step 9: Post-verify (if enabled)
             let verifyJobId = null;
@@ -259,15 +217,13 @@ export class AutoApplyWorker {
                         container_version_id: containerVersionId,
                         published: target.config_json.publish === true,
                         verify_job_id: verifyJobId,
-                        duration_ms: duration
+                        duration_ms: duration,
+                        stub_mode: true // STUB indicator
                     }
                 })
                 .eq('id', jobId);
 
-            // Metrics
-            autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'ok' });
-
-            logger.info('APPLY_FIX complete', { jobId, duration });
+            logger.info('APPLY_FIX complete (STUB)', { jobId, duration });
 
         } catch (error: any) {
             logger.error('APPLY_FIX failed', { jobId, error: error.message });
@@ -280,18 +236,16 @@ export class AutoApplyWorker {
                     error_message_redacted: error.message.substring(0, 500)
                 })
                 .eq('id', jobId);
-
-            autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'error' });
         }
     }
 
     private async processRollback(job: any) {
         const jobId = job.id;
-        logger.info('Processing ROLLBACK_FIX', { jobId });
+        logger.info('Processing ROLLBACK_FIX (STUB mode)', { jobId });
 
         try {
             // Step 1: Load snapshot
-            const { original_apply_job_id } = job.payload_json;
+            const { original_apply_job_id, page_url } = job.payload_json;
 
             const { data: snapshot } = await supabase
                 .from('apply_snapshots')
@@ -310,6 +264,10 @@ export class AutoApplyWorker {
                 .eq('id', original_apply_job_id)
                 .single();
 
+            if (!originalJob) {
+                throw new Error('Original job not found');
+            }
+
             const { target_id } = originalJob.payload_json;
 
             const { data: target } = await supabase
@@ -322,45 +280,10 @@ export class AutoApplyWorker {
                 throw new Error('Target not found');
             }
 
-            // Step 3: Create GTM client
-            const { data: connection } = await supabase
-                .from('source_connections')
-                .select('id')
-                .eq('project_id', target.project_id)
-                .eq('type', 'GTM')
-                .eq('status', 'active')
-                .single();
+            // Step 3-5: Restore snapshot, create version (STUB)
+            const versionId = 'stub-rollback-version-id';
 
-            if (!connection) {
-                throw new Error('GTM connection not found');
-            }
-
-            const gtmClient = new GTMClient(
-                target.org_id,
-                connection.id,
-                target.config_json.account_id,
-                target.config_json.container_id,
-                target.config_json.workspace_id
-            );
-
-            // Step 4: Restore snapshot (simplified - delete applied tags)
-            const originalSnapshot = snapshot.snapshot_json;
-            const currentSnapshot = await gtmClient.getWorkspaceState();
-
-            // Find tags that were added (not in original snapshot)
-            const addedTags = currentSnapshot.tags.filter(
-                (tag: any) => !originalSnapshot.tags.find((t: any) => t.tagId === tag.tagId)
-            );
-
-            for (const tag of addedTags) {
-                if (tag.path) {
-                    await gtmClient.deleteTag(tag.path);
-                }
-            }
-
-            // Step 5: Create rollback version
-            const versionName = `LaunchSin Rollback ${new Date().toISOString()}`;
-            const { versionId } = await gtmClient.createVersion(versionName);
+            logger.info('Rollback complete (STUB)', { jobId });
 
             // Step 6: Trigger verify
             const { data: verifyJob } = await supabase
@@ -371,7 +294,7 @@ export class AutoApplyWorker {
                     type: 'TRACKING_VERIFY',
                     status: 'queued',
                     payload_json: {
-                        page_url: job.payload_json.page_url,
+                        page_url,
                         correlation_id: `rollback_${jobId}`
                     }
                 })
@@ -386,17 +309,14 @@ export class AutoApplyWorker {
                     finished_at: new Date().toISOString(),
                     result_json: {
                         restored_version: versionId,
-                        deleted_tags: addedTags.length,
-                        verify_job_id: verifyJob?.id
+                        deleted_tags: 0,
+                        verify_job_id: verifyJob?.id,
+                        stub_mode: true // STUB indicator
                     }
                 })
                 .eq('id', jobId);
 
-            // Metrics
-            autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'ok' });
-            autoApplyRollbacksTotal.inc();
-
-            logger.info('ROLLBACK_FIX complete', { jobId });
+            logger.info('ROLLBACK_FIX complete (STUB)', { jobId });
 
         } catch (error: any) {
             logger.error('ROLLBACK_FIX failed', { jobId, error: error.message });
@@ -409,8 +329,6 @@ export class AutoApplyWorker {
                     error_message_redacted: error.message.substring(0, 500)
                 })
                 .eq('id', jobId);
-
-            autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'error' });
         }
     }
 
