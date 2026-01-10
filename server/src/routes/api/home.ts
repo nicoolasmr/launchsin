@@ -103,7 +103,7 @@ router.get(
                 .from('dlq_events')
                 .select('*', { count: 'exact', head: true })
                 .in('project_id', projectIds)
-                .is('resolved_at', null);
+                .eq('status', 'pending');
 
             const { count: alertsOpen } = await supabase
                 .from('alignment_alerts')
@@ -111,14 +111,48 @@ router.get(
                 .in('project_id', projectIds)
                 .eq('status', 'open');
 
+            // Aggregate: alignment_cache_hit_rate_24h
+            const { data: reportsLast24h } = await supabase
+                .from('alignment_reports_v2')
+                .select('cached')
+                .in('project_id', projectIds)
+                .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+            const cachedCount = reportsLast24h?.filter(r => r.cached === true).length || 0;
+            const totalCount = reportsLast24h?.length || 0;
+            const cacheHitRate24h = totalCount > 0 ? (cachedCount / totalCount) * 100 : 0;
+
+            // Aggregate: llm_cost_today_usd
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const { data: costToday } = await supabase
+                .from('ai_usage_events')
+                .select('cost_usd')
+                .eq('org_id', orgId)
+                .gte('created_at', today.toISOString());
+
+            const llmCostTodayUsd = costToday?.reduce((sum, e) => sum + parseFloat(e.cost_usd || '0'), 0) || 0;
+
+            // Aggregate: llm_cost_7d_usd
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            const { data: cost7d } = await supabase
+                .from('ai_usage_events')
+                .select('cost_usd')
+                .eq('org_id', orgId)
+                .gte('created_at', sevenDaysAgo.toISOString());
+
+            const llmCost7dUsd = cost7d?.reduce((sum, e) => sum + parseFloat(e.cost_usd || '0'), 0) || 0;
+
             // SafeDTO: Whitelist response
-            const safeResponse = {
+            res.json({
                 total_projects: totalProjects || 0,
-                integrations_health: {
+                integrations_health: totalConnections > 0 ? {
                     active: activeConnections,
                     total: totalConnections,
-                    health_pct: totalConnections > 0 ? Math.round((activeConnections / totalConnections) * 100) : 0
-                },
+                    health_pct: Math.round((activeConnections / totalConnections) * 100)
+                } : null,
                 alignment_summary: avgScore !== null ? {
                     avg_score: Math.round(avgScore),
                     critical_count: criticalCount,
@@ -132,10 +166,11 @@ router.get(
                 ops_summary: {
                     dlq_pending: dlqPending || 0,
                     alerts_open: alertsOpen || 0
-                }
-            };
-
-            res.json(safeResponse);
+                },
+                alignment_cache_hit_rate_24h: Math.round(cacheHitRate24h * 10) / 10, // 1 decimal
+                llm_cost_today_usd: Math.round(llmCostTodayUsd * 100) / 100, // 2 decimals
+                llm_cost_7d_usd: Math.round(llmCost7dUsd * 100) / 100 // 2 decimals
+            });
         } catch (error: any) {
             logger.error('Home overview failed', { error: error.message });
             res.status(500).json({ error: 'Failed to fetch overview' });

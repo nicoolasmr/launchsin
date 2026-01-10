@@ -31,6 +31,7 @@ import timelineRouter from './routes/api/timeline';
 import homeRouter from './routes/api/home';
 import homeActionsRouter from './routes/api/home-actions';
 import homePrefsRouter from './routes/api/home-prefs';
+import metricsRouter from './routes/api/metrics';
 
 const router = Router();
 
@@ -96,6 +97,9 @@ router.use(timelineRouter);
 router.use(leakGate, homeRouter);
 router.use(leakGate, homeActionsRouter);
 router.use(leakGate, homePrefsRouter);
+
+// Metrics (no LeakGate - standard Prometheus endpoint)
+router.use(metricsRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
