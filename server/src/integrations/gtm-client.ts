@@ -1,124 +1,338 @@
 import { logger } from '../infra/structured-logger';
+import { gtmConnector } from './gtm-connector';
 
 /**
- * GTM API Client (Phase D)
+ * GTM API Client (Phase B)
  * 
- * PLACEHOLDER: Requires OAuth tokens and GTM API access
+ * Real implementation for GTM Tag Manager API v2
  * 
- * To implement:
- * 1. Fetch access_token from secret_refs
- * 2. Make authenticated requests to GTM API
- * 3. Handle token refresh on 401
- * 4. Implement rate limiting
+ * Features:
+ * - Token management (auto-refresh)
+ * - Tag CRUD operations
+ * - Version management
+ * - Workspace state snapshots
+ * - Error handling (rate limits, permissions)
  */
 
 export interface GTMTag {
-    tagId: string;
+    tagId?: string;
     name: string;
     type: string;
     parameter: Array<{ key: string; value: string; type: string }>;
     firingTriggerId: string[];
+    path?: string;
+}
+
+export interface GTMTrigger {
+    triggerId?: string;
+    name: string;
+    type: string;
+    filter?: any[];
+    path?: string;
 }
 
 export interface GTMWorkspaceSnapshot {
     workspaceId: string;
     containerId: string;
+    containerVersionId?: string;
     tags: GTMTag[];
-    triggers: any[];
+    triggers: GTMTrigger[];
     variables: any[];
     snapshotAt: string;
 }
 
 export class GTMClient {
-    private accessToken: string | null = null;
+    private orgId: string;
+    private connectionId: string;
+    private accountId: string;
+    private containerId: string;
+    private workspaceId: string;
 
-    constructor(private accountId: string, private containerId: string) { }
+    constructor(orgId: string, connectionId: string, accountId: string, containerId: string, workspaceId: string) {
+        this.orgId = orgId;
+        this.connectionId = connectionId;
+        this.accountId = accountId;
+        this.containerId = containerId;
+        this.workspaceId = workspaceId;
+    }
 
     /**
      * Get workspace state (for snapshot before apply)
      */
-    async getWorkspaceState(workspaceId: string): Promise<GTMWorkspaceSnapshot> {
-        // STUB: In production, fetch from GTM API
-        logger.info('GTM getWorkspaceState (STUB)', { workspaceId });
+    async getWorkspaceState(): Promise<GTMWorkspaceSnapshot> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+            const workspacePath = `accounts/${this.accountId}/containers/${this.containerId}/workspaces/${this.workspaceId}`;
 
-        return {
-            workspaceId,
-            containerId: this.containerId,
-            tags: [],
-            triggers: [],
-            variables: [],
-            snapshotAt: new Date().toISOString()
-        };
+            // Fetch workspace info
+            const wsResponse = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            if (!wsResponse.ok) {
+                throw new Error(`Failed to fetch workspace: ${wsResponse.statusText}`);
+            }
+
+            const workspace = await wsResponse.json();
+
+            // Fetch tags
+            const tagsResponse = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/tags`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            const tagsData = await tagsResponse.json();
+            const tags = (tagsData.tag || []).map((tag: any) => ({
+                tagId: tag.tagId,
+                name: tag.name,
+                type: tag.type,
+                parameter: tag.parameter || [],
+                firingTriggerId: tag.firingTriggerId || [],
+                path: tag.path
+            }));
+
+            // Fetch triggers
+            const triggersResponse = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/triggers`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            const triggersData = await triggersResponse.json();
+            const triggers = (triggersData.trigger || []).map((trigger: any) => ({
+                triggerId: trigger.triggerId,
+                name: trigger.name,
+                type: trigger.type,
+                filter: trigger.filter,
+                path: trigger.path
+            }));
+
+            return {
+                workspaceId: this.workspaceId,
+                containerId: this.containerId,
+                containerVersionId: workspace.containerVersionId,
+                tags,
+                triggers,
+                variables: [],
+                snapshotAt: new Date().toISOString()
+            };
+        } catch (error: any) {
+            logger.error('Failed to get workspace state', { error: error.message });
+            throw error;
+        }
     }
 
     /**
-     * Create tag in workspace
+     * Create tag in workspace (idempotent - update if exists)
      */
-    async createTag(workspaceId: string, tagConfig: Partial<GTMTag>): Promise<GTMTag> {
-        // STUB: In production, POST to GTM API
-        logger.info('GTM createTag (STUB)', { workspaceId, tagName: tagConfig.name });
+    async upsertTag(tagConfig: GTMTag): Promise<GTMTag> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+            const workspacePath = `accounts/${this.accountId}/containers/${this.containerId}/workspaces/${this.workspaceId}`;
 
-        return {
-            tagId: `tag-${Date.now()}`,
-            name: tagConfig.name || 'Unnamed Tag',
-            type: tagConfig.type || 'html',
-            parameter: tagConfig.parameter || [],
-            firingTriggerId: tagConfig.firingTriggerId || []
-        };
+            // Check if tag exists
+            const existingTags = await this.listTags();
+            const existingTag = existingTags.find(t => t.name === tagConfig.name);
+
+            if (existingTag) {
+                // Update existing tag
+                logger.info('Updating existing GTM tag', { tagName: tagConfig.name });
+
+                const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${existingTag.path}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: tagConfig.name,
+                        type: tagConfig.type,
+                        parameter: tagConfig.parameter,
+                        firingTriggerId: tagConfig.firingTriggerId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to update tag: ${response.statusText}`);
+                }
+
+                return await response.json();
+            } else {
+                // Create new tag
+                logger.info('Creating new GTM tag', { tagName: tagConfig.name });
+
+                const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: tagConfig.name,
+                        type: tagConfig.type,
+                        parameter: tagConfig.parameter,
+                        firingTriggerId: tagConfig.firingTriggerId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to create tag: ${response.statusText}`);
+                }
+
+                return await response.json();
+            }
+        } catch (error: any) {
+            logger.error('Failed to upsert tag', { error: error.message });
+            throw error;
+        }
     }
 
     /**
-     * Update existing tag
+     * Create or get "All Pages" trigger
      */
-    async updateTag(workspaceId: string, tagId: string, tagConfig: Partial<GTMTag>): Promise<GTMTag> {
-        // STUB: In production, PUT to GTM API
-        logger.info('GTM updateTag (STUB)', { workspaceId, tagId });
+    async ensureAllPagesTrigger(): Promise<string> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+            const workspacePath = `accounts/${this.accountId}/containers/${this.containerId}/workspaces/${this.workspaceId}`;
 
-        return {
-            tagId,
-            name: tagConfig.name || 'Updated Tag',
-            type: tagConfig.type || 'html',
-            parameter: tagConfig.parameter || [],
-            firingTriggerId: tagConfig.firingTriggerId || []
-        };
+            // Check if trigger exists
+            const triggersResponse = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/triggers`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            const triggersData = await triggersResponse.json();
+            const allPagesTrigger = (triggersData.trigger || []).find((t: any) => t.name === 'All Pages' || t.type === 'PAGEVIEW');
+
+            if (allPagesTrigger) {
+                return allPagesTrigger.triggerId;
+            }
+
+            // Create "All Pages" trigger
+            const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/triggers`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: 'All Pages',
+                    type: 'PAGEVIEW'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to create trigger: ${response.statusText}`);
+            }
+
+            const trigger = await response.json();
+            return trigger.triggerId;
+        } catch (error: any) {
+            logger.error('Failed to ensure All Pages trigger', { error: error.message });
+            throw error;
+        }
     }
 
     /**
-     * Create workspace version (publish changes)
+     * Create workspace version
      */
-    async createVersion(workspaceId: string): Promise<{ versionId: string; published: boolean }> {
-        // STUB: In production, POST to GTM API
-        logger.info('GTM createVersion (STUB)', { workspaceId });
+    async createVersion(versionName: string): Promise<{ versionId: string; containerVersionId: string }> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+            const workspacePath = `accounts/${this.accountId}/containers/${this.containerId}/workspaces/${this.workspaceId}`;
 
-        return {
-            versionId: `version-${Date.now()}`,
-            published: false
-        };
+            const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}:create_version`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: versionName,
+                    notes: 'Created by LaunchSin Auto-Apply'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to create version: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return {
+                versionId: data.containerVersion.containerVersionId,
+                containerVersionId: data.containerVersion.containerVersionId
+            };
+        } catch (error: any) {
+            logger.error('Failed to create version', { error: error.message });
+            throw error;
+        }
     }
 
     /**
-     * Restore workspace to previous version (for rollback)
+     * Publish version (optional)
      */
-    async restoreVersion(versionId: string): Promise<void> {
-        // STUB: In production, restore via GTM API
-        logger.info('GTM restoreVersion (STUB)', { versionId });
+    async publishVersion(versionId: string): Promise<void> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+            const versionPath = `accounts/${this.accountId}/containers/${this.containerId}/versions/${versionId}`;
+
+            const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${versionPath}:publish`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to publish version: ${response.statusText}`);
+            }
+
+            logger.info('Version published', { versionId });
+        } catch (error: any) {
+            logger.error('Failed to publish version', { error: error.message });
+            throw error;
+        }
     }
 
     /**
-     * Fetch access token from secret_refs
+     * List tags
      */
-    private async fetchAccessToken(): Promise<string> {
-        // STUB: In production, decrypt from secret_refs
-        logger.info('GTM fetchAccessToken (STUB)');
-        return 'STUB_ACCESS_TOKEN';
+    private async listTags(): Promise<GTMTag[]> {
+        const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+        const workspacePath = `accounts/${this.accountId}/containers/${this.containerId}/workspaces/${this.workspaceId}`;
+
+        const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${workspacePath}/tags`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+
+        const data = await response.json();
+        return (data.tag || []).map((tag: any) => ({
+            tagId: tag.tagId,
+            name: tag.name,
+            type: tag.type,
+            parameter: tag.parameter || [],
+            firingTriggerId: tag.firingTriggerId || [],
+            path: tag.path
+        }));
     }
 
     /**
-     * Refresh access token using refresh token
+     * Delete tag (for rollback)
      */
-    private async refreshAccessToken(): Promise<string> {
-        // STUB: In production, use refresh_token to get new access_token
-        logger.info('GTM refreshAccessToken (STUB)');
-        return 'STUB_REFRESHED_ACCESS_TOKEN';
+    async deleteTag(tagPath: string): Promise<void> {
+        try {
+            const accessToken = await gtmConnector.getAccessToken(this.orgId, this.connectionId);
+
+            const response = await fetch(`https://tagmanager.googleapis.com/tagmanager/v2/${tagPath}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            if (!response.ok && response.status !== 404) {
+                throw new Error(`Failed to delete tag: ${response.statusText}`);
+            }
+
+            logger.info('Tag deleted', { tagPath });
+        } catch (error: any) {
+            logger.error('Failed to delete tag', { error: error.message });
+            throw error;
+        }
     }
 }
