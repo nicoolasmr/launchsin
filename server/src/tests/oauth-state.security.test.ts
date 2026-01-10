@@ -41,7 +41,9 @@ describe('OAuth State Security (F-SEC-05)', () => {
         const state = OAuthStateService.generateState(VALID_PAYLOAD);
         const [payload] = state.split('.');
 
-        const fakeSignature = 'bWFsaWNpb3Vfc2lnbmF0dXJl';
+        // HMAC-SHA256 base64url is 43 chars. 
+        // We use a random string of same length to test collision/mismatch safely.
+        const fakeSignature = 'X'.repeat(43);
         const tamperedState = `${payload}.${fakeSignature}`;
 
         expect(OAuthStateService.validateState(tamperedState)).toBeNull();

@@ -43,8 +43,13 @@ export class OAuthStateService {
         const [payloadStr, signature] = state.split('.');
 
         // 1. Verify signature
+        // 1. Verify signature
         const expectedSignature = this.sign(payloadStr);
-        if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+        const signatureBuf = Buffer.from(signature);
+        const expectedSignatureBuf = Buffer.from(expectedSignature);
+
+        if (signatureBuf.length !== expectedSignatureBuf.length ||
+            !crypto.timingSafeEqual(signatureBuf, expectedSignatureBuf)) {
             logger.warn('OAuth state signature invalid');
             return null;
         }
