@@ -5,6 +5,7 @@ import { MetaAdsConnector } from '../../integrations/connectors/meta-ads';
 import { AuthenticatedRequest } from '../../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import { OAuthStateService } from '../../infra/oauth-state';
 
 const META_APP_ID = process.env.META_APP_ID || '';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
@@ -37,21 +38,18 @@ export async function startMetaOAuth(req: AuthenticatedRequest, res: Response): 
             return;
         }
 
-        // Generate state for CSRF protection
-        const state = crypto.randomBytes(32).toString('hex');
-
-        // Store state in session or database (for validation in callback)
-        // For now, we'll encode connectionId in state
-        const statePayload = Buffer.from(JSON.stringify({
-            connection_id: connectionId,
-            project_id: projectId,
-            nonce: state
-        })).toString('base64');
+        // Generate signed state
+        const state = OAuthStateService.generateState({
+            orgId: connection.org_id,
+            userId: req.user?.id || 'unknown',
+            connectionId: connection.id,
+            provider: 'meta'
+        });
 
         const authUrl = MetaAdsConnector.getAuthorizationUrl(
             META_APP_ID,
             META_REDIRECT_URI,
-            statePayload
+            state
         );
 
         logger.info('Meta OAuth flow started', {
@@ -79,9 +77,33 @@ export async function handleMetaOAuthCallback(req: Request, res: Response): Prom
     }
 
     try {
-        // Decode state
-        const statePayload = JSON.parse(Buffer.from(state as string, 'base64').toString());
-        const { connection_id, project_id } = statePayload;
+        // Validate state
+        const statePayload = OAuthStateService.validateState(state as string);
+        if (!statePayload) {
+            res.status(400).send('Invalid or expired state');
+            return;
+        }
+
+        const connection_id = statePayload.connectionId!;
+        // Get project_id from connection (since state only has connectionId to save space/redundancy? 
+        // original code had project_id in state. We can fetch from DB or assume connection implies project)
+        // Actually, we need project_id for redirect!
+        // We should add projectId to OAuthState interface or fetch it.
+        // Let's fetch it to be safe and consistent.
+
+        // Fetch connection again to get project_id
+        const { data: connection, error: connFetchError } = await supabase
+            .from('source_connections')
+            .select('id, project_id, org_id')
+            .eq('id', connection_id)
+            .single();
+
+        if (connFetchError || !connection) {
+            res.status(404).json({ error: 'Connection not found' });
+            return;
+        }
+
+        const project_id = connection.project_id;
 
         // Exchange code for token
         const tokens = await MetaAdsConnector.exchangeCodeForToken(

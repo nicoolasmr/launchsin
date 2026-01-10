@@ -1,6 +1,7 @@
 import { logger } from '../infra/structured-logger';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+import Redis from 'ioredis';
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
@@ -17,6 +18,24 @@ const LLM_PRICING = process.env.LLM_PRICING_JSON
 
 export class AlignmentWorkerV2 {
     private isRunning = false;
+    private redis: Redis;
+
+    constructor() {
+        this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    }
+
+    /**
+     * Acquire distributed lock (non-blocking)
+     */
+    public async acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
+        try {
+            const result = await this.redis.set(key, 'locked', 'EX', ttlSeconds, 'NX');
+            return result === 'OK';
+        } catch (err: any) {
+            logger.error('Failed to acquire lock', { key, error: err.message });
+            return false;
+        }
+    }
 
     async start() {
         if (this.isRunning) {
@@ -298,6 +317,34 @@ export class AlignmentWorkerV2 {
 
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    private isInQuietHours(schedule: { enabled: boolean; start: string; end: string }, timezone: string = 'UTC'): boolean {
+        if (!schedule.enabled) return false;
+
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: timezone
+        });
+
+        const [hours, minutes] = formatter.format(now).split(':').map(Number);
+        const currentTime = hours * 60 + minutes;
+
+        const [startHours, startMinutes] = schedule.start.split(':').map(Number);
+        const startTime = startHours * 60 + startMinutes;
+
+        const [endHours, endMinutes] = schedule.end.split(':').map(Number);
+        const endTime = endHours * 60 + endMinutes;
+
+        if (startTime <= endTime) {
+            // Same day range (e.g. 09:00 - 17:00)
+            return currentTime >= startTime && currentTime < endTime;
+        } else {
+            // Overnight range (e.g. 22:00 - 06:00)
+            return currentTime >= startTime || currentTime < endTime;
+        }
     }
 }
 

@@ -55,9 +55,9 @@ export async function handleHotmartWebhook(
         }
 
         // 2. Validate hottok
-        const hotmartSecret = connection.config_json?.hotmart_secret;
+        const hotmartSecret = connection.config_json?.hotmart_secret || process.env.HOTMART_HOTTOK;
         if (!hotmartSecret) {
-            logger.error('Hotmart secret not configured', {
+            logger.error('Hotmart secret not configured (connection nor env)', {
                 correlation_id: correlationId,
                 connection_id: connectionId
             });

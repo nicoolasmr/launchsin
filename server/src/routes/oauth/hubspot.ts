@@ -5,26 +5,9 @@ import { logger } from '../../infra/structured-logger';
 import { HubSpotConnector } from '../../integrations/connectors/hubspot';
 import { secretsProvider } from '../../security/secrets-provider';
 
-const STATE_SECRET = process.env.SECRETS_ENCRYPTION_KEY || 'dev-secret';
+import { OAuthStateService } from '../../infra/oauth-state';
 
-function signState(payload: object): string {
-    const data = JSON.stringify(payload);
-    const hmac = crypto.createHmac('sha256', STATE_SECRET).update(data).digest('base64url');
-    return `${Buffer.from(data).toString('base64url')}.${hmac}`;
-}
-
-function verifyState(state: string): any {
-    const [dataB64, signature] = state.split('.');
-    if (!dataB64 || !signature) throw new Error('Invalid state format');
-
-    const data = Buffer.from(dataB64, 'base64url').toString();
-    const expectedSig = crypto.createHmac('sha256', STATE_SECRET).update(data).digest('base64url');
-
-    if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
-        return JSON.parse(data);
-    }
-    throw new Error('Invalid state signature');
-}
+// Removed local state signing logic in favor of OAuthStateService
 
 export const startHubSpotOAuth = async (req: Request, res: Response) => {
     const { projectId, connectionId, redirectUri } = req.query;
@@ -41,15 +24,25 @@ export const startHubSpotOAuth = async (req: Request, res: Response) => {
     // If start is authenticated (via UI), we could protect it. But 'start' is usually a GET link.
     // I'll proceed with standard flow.
 
-    const statePayload = {
-        projectId,
-        connectionId,
-        redirectUri,
-        nonce: crypto.randomBytes(8).toString('hex'),
-        expiresAt: Date.now() + 1000 * 60 * 10 // 10 mins
-    };
 
-    const state = signState(statePayload);
+    // Fetch connection to get OrgID for state
+    const { data: connection } = await supabase
+        .from('source_connections')
+        .select('id, org_id')
+        .eq('id', String(connectionId))
+        .single();
+
+    if (!connection) {
+        return res.status(404).json({ error: 'Connection not found' });
+    }
+
+    const state = OAuthStateService.generateState({
+        orgId: connection.org_id,
+        userId: (req as any).user?.id || 'public-oauth',
+        connectionId: String(connectionId),
+        provider: 'hubspot',
+        redirectUri: String(redirectUri)
+    });
     const connector = new HubSpotConnector();
     const url = connector.getAuthUrl({
         projectId: String(projectId),
@@ -69,20 +62,26 @@ export const handleHubSpotCallback = async (req: Request, res: Response) => {
         return res.redirect('/integrations?error=oauth_denied');
     }
 
+    if (!state || typeof state !== 'string') {
+        return res.status(400).send('Missing or invalid state parameter');
+    }
+
     try {
-        const payload = verifyState(String(state));
-        if (Date.now() > payload.expiresAt) throw new Error('State expired');
+        const payload = OAuthStateService.validateState(state);
+        if (!payload) throw new Error('Invalid or expired state');
+        // Check provider type to be sure
+        if (payload.provider !== 'hubspot') throw new Error('Invalid provider in state');
 
         const connector = new HubSpotConnector();
         const tokens = await connector.exchangeCodeForToken({
             code: String(code),
-            redirectUri: payload.redirectUri
+            redirectUri: (payload.redirectUri as string) || ''
         });
 
         // 1. Get Connection to verify validity (and get OrgID)
         const { data: connection, error: connError } = await supabase
             .from('source_connections')
-            .select('id, org_id, config_json')
+            .select('id, org_id, project_id, config_json')
             .eq('id', payload.connectionId)
             .single();
 
@@ -112,7 +111,9 @@ export const handleHubSpotCallback = async (req: Request, res: Response) => {
             .eq('id', connection.id);
 
         // 4. Redirect to UI
-        const uiRedirect = `${new URL(payload.redirectUri).origin}/projects/${payload.projectId}/integrations?tab=settings&status=connected`;
+        // We need projectId. Fetch from connection again (we just fetched verify validity but didn't select projectId)
+        // Optimization: select projectId above
+        const uiRedirect = `${new URL(payload.redirectUri!).origin}/projects/${connection.project_id || 'unknown'}/integrations?tab=settings&status=connected`;
         res.redirect(uiRedirect);
 
     } catch (err: any) {

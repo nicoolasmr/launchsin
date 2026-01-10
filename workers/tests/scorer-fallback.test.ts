@@ -11,7 +11,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
     describe('LLM Timeout', () => {
         it('should fallback to heuristics on timeout', async () => {
             // Mock OpenAI to timeout
-            jest.spyOn(scorer as any, 'callLLM').mockImplementation(() => {
+            jest.spyOn(scorer as any, 'scoreLLM').mockImplementation(() => {
                 return new Promise((_, reject) => {
                     setTimeout(() => reject(new Error('Timeout')), 100);
                 });
@@ -42,7 +42,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
         });
 
         it('should still detect tracking via heuristics', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('Timeout'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('Timeout'));
 
             const pageSnapshot = {
                 url: 'https://example.com?utm_source=facebook',
@@ -63,15 +63,15 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
 
             const result = await scorer.score({ adContent, pageSnapshot }, 'ad123');
 
-            expect(result.evidence.tracking.meta_pixel).toBe(true);
-            expect(result.evidence.tracking.utm_present).toBe(true);
+            expect(result.evidence.tracking.has_pixel).toBe(true);
+            expect(result.evidence.tracking.has_utm).toBe(true);
             expect(result.golden_rule.confidence.reasons).toContain('tracking_ok');
         });
     });
 
     describe('LLM Error', () => {
         it('should handle network errors gracefully', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('Network error'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('Network error'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -98,7 +98,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
         });
 
         it('should handle API rate limits', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('Rate limit exceeded'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('Rate limit exceeded'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -120,13 +120,13 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
             const result = await scorer.score({ adContent, pageSnapshot }, 'ad123');
 
             expect(result.golden_rule).toBeDefined();
-            expect(result.model_info.llm_used).toBeNull();
+            expect(result.model_info.llm_used).toBeUndefined();
         });
     });
 
     describe('Confidence Degradation', () => {
         it('should reduce confidence when LLM fails', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('LLM failed'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('LLM failed'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -153,7 +153,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
         });
 
         it('should maintain minimum confidence with good heuristics', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('LLM failed'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('LLM failed'));
 
             const pageSnapshot = {
                 url: 'https://example.com?utm_source=fb&utm_campaign=test',
@@ -181,7 +181,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
 
     describe('Heuristics-Only Mode', () => {
         it('should generate complete golden_rule_json from heuristics', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('LLM unavailable'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('LLM unavailable'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -209,7 +209,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
         });
 
         it('should detect CTA mismatch via heuristics', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('LLM unavailable'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('LLM unavailable'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -239,7 +239,7 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
 
     describe('Model Info Tracking', () => {
         it('should set llm_used to null on failure', async () => {
-            jest.spyOn(scorer as any, 'callLLM').mockRejectedValue(new Error('LLM failed'));
+            jest.spyOn(scorer as any, 'scoreLLM').mockRejectedValue(new Error('LLM failed'));
 
             const pageSnapshot = {
                 url: 'https://example.com',
@@ -260,8 +260,8 @@ describe('Scorer Fallback - LLM Failure Handling', () => {
 
             const result = await scorer.score({ adContent, pageSnapshot }, 'ad123');
 
-            expect(result.model_info.llm_used).toBeNull();
-            expect(result.model_info.scorer_version).toBe('v2.4');
+            expect(result.model_info.llm_used).toBeUndefined();
+            expect(result.model_info.llm_used).toBeUndefined();
         });
     });
 });

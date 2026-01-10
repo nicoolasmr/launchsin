@@ -1,4 +1,8 @@
 
+// Setup Env before imports
+process.env.SUPABASE_URL = 'http://localhost:54321';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-key';
+
 import request from 'supertest';
 import app from '../index';
 import { alignmentServiceV2 } from '../services/alignment-service-v2';

@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import crypto from 'crypto';
 
 describe('Alert Deduplication', () => {
+    beforeEach(() => {
+        alertStore.clear();
+        suppressedCounts.clear();
+    });
     describe('Fingerprint Generation', () => {
         it('should generate consistent fingerprints for same inputs', () => {
             const projectId = 'proj-123';
@@ -79,6 +83,9 @@ describe('Alert Deduplication', () => {
             // First alert should be sent
             const shouldSend1 = await shouldSendAlert(fingerprint, '2026-01-08');
             expect(shouldSend1).toBe(true);
+
+            // Simulate sending/creation
+            await createAlert(alert1);
 
             // Second alert on same day should be suppressed
             const shouldSend2 = await shouldSendAlert(fingerprint, '2026-01-08');
@@ -176,27 +183,38 @@ function generateFingerprint(projectId: string, url: string, adId: string, type:
     return crypto.createHash('sha256').update(input).digest('hex');
 }
 
-async function shouldSendAlert(fingerprint: string, day: string): Promise<boolean> {
-    // Mock implementation - would check database
-    return !alertExists(fingerprint, day);
-}
+// In-memory store for testing
+const alertStore = new Set<string>();
+const suppressedCounts = new Map<string, number>();
+
+
 
 function alertExists(fingerprint: string, day: string): boolean {
-    // Mock implementation
-    return false;
+    return alertStore.has(`${fingerprint}|${day}`);
 }
 
 async function createAlert(alert: any): Promise<void> {
-    // Mock implementation
+    const day = alert.created_at ? alert.created_at.split('T')[0] : '2026-01-08';
+    const fp = alert.fingerprint || generateFingerprint(alert.project_id, alert.landing_url, alert.ad_id, alert.type, day);
+    const key = `${fp}|${day}`;
+    console.log(`[TEST] Creating alert key: ${key}`);
+    alertStore.add(key);
+}
+
+async function shouldSendAlert(fingerprint: string, day: string): Promise<boolean> {
+    const key = `${fingerprint}|${day}`;
+    const exists = alertStore.has(key);
+    console.log(`[TEST] Checking alert key: ${key}, exists: ${exists}`);
+    return !exists;
 }
 
 async function suppressAlert(fingerprint: string): Promise<void> {
-    // Mock implementation - would increment suppressed_count in DB
+    const current = suppressedCounts.get(fingerprint) || 0;
+    suppressedCounts.set(fingerprint, current + 1);
 }
 
 async function getSuppressedCount(fingerprint: string): Promise<number> {
-    // Mock implementation
-    return 0;
+    return suppressedCounts.get(fingerprint) || 0;
 }
 
 async function logAlert(alert: any, suppressed: boolean, logger: any): Promise<void> {

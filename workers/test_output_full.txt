@@ -1,0 +1,166 @@
+
+> launchsin-workers@0.1.0 test
+> jest --coverage
+
+PASS tests/alignment-cache.test.ts
+PASS tests/scheduler-budget.test.ts
+FAIL tests/alignment-locking-sim.test.ts
+  ● Alignment Worker V2 - Locking › should acquire leader lock successfully
+
+    TypeError: worker.acquireLock is not a function
+
+      28 |     it('should acquire leader lock successfully', async () => {
+      29 |         redisClient.set.mockResolvedValue('OK');
+    > 30 |         const result = await (worker as any).acquireLock('leader', 15);
+         |                                              ^
+      31 |         expect(result).toBe(true);
+      32 |         expect(redisClient.set).toHaveBeenCalledWith('leader', 'locked', 'EX', 15, 'NX');
+      33 |     });
+
+      at Object.<anonymous> (tests/alignment-locking-sim.test.ts:30:46)
+
+  ● Alignment Worker V2 - Locking › should fail to acquire lock if held
+
+    TypeError: worker.acquireLock is not a function
+
+      35 |     it('should fail to acquire lock if held', async () => {
+      36 |         redisClient.set.mockResolvedValue(null);
+    > 37 |         const result = await (worker as any).acquireLock('leader', 15);
+         |                                              ^
+      38 |         expect(result).toBe(false);
+      39 |     });
+      40 | });
+
+      at Object.<anonymous> (tests/alignment-locking-sim.test.ts:37:46)
+
+PASS tests/scorer-fallback.test.ts
+  ● Console
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"Timeout","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.043Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":110,"llmSuccess":false,"score":84,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.051Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"Timeout","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.053Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":1,"llmSuccess":false,"score":100,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.053Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"Network error","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.053Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":0,"llmSuccess":false,"score":76,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.053Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"Rate limit exceeded","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.054Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":0,"llmSuccess":false,"score":76,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.054Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"LLM failed","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.054Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":1,"llmSuccess":false,"score":76,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.055Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"LLM failed","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.055Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":0,"llmSuccess":false,"score":100,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.055Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"LLM unavailable","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.055Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":1,"llmSuccess":false,"score":73,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.056Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"LLM unavailable","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.056Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":0,"llmSuccess":false,"score":73,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.056Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [33mwarn[39m: LLM scoring failed, using heuristics only {"error":"LLM failed","service":"launchsin-server","timestamp":"2026-01-10T16:36:10.056Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      [32minfo[39m: Alignment scoring complete {"confidence":65,"duration":0,"llmSuccess":false,"score":76,"service":"launchsin-server","timestamp":"2026-01-10T16:36:10.056Z"}
+
+      at Console.log (../node_modules/winston/lib/winston/transports/console.js:87:23)
+
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL tests/alert-dedup.test.ts
+  ● Test suite failed to run
+
+    [96mtests/alert-dedup.test.ts[0m:[93m190[0m:[93m16[0m - [91merror[0m[90m TS2393: [0mDuplicate function implementation.
+
+    [7m190[0m async function shouldSendAlert(fingerprint: string, day: string): Promise<boolean> {
+    [7m   [0m [91m               ~~~~~~~~~~~~~~~[0m
+    [96mtests/alert-dedup.test.ts[0m:[93m206[0m:[93m16[0m - [91merror[0m[90m TS2393: [0mDuplicate function implementation.
+
+    [7m206[0m async function shouldSendAlert(fingerprint: string, day: string): Promise<boolean> {
+    [7m   [0m [91m               ~~~~~~~~~~~~~~~[0m
+
+---------------------------|---------|----------|---------|---------|-----------------------------------------
+File                       | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                       
+---------------------------|---------|----------|---------|---------|-----------------------------------------
+All files                  |   56.54 |     52.2 |   48.48 |   57.01 |                                         
+ domain                    |   87.38 |    67.08 |   92.85 |   86.91 |                                         
+  alignment-scorer-v2_4.ts |   87.38 |    67.08 |   92.85 |   86.91 | 100-104,211,226-261,279,282,312,385-386 
+ infra                     |   22.22 |    21.42 |       0 |      25 |                                         
+  structured-logger.ts     |   22.22 |    21.42 |       0 |      25 | 13-29,47                                
+ jobs                      |   21.73 |    24.24 |    7.69 |   22.22 |                                         
+  alignment-worker-v2.ts   |   21.73 |    24.24 |    7.69 |   22.22 | 22-300                                  
+ utils                     |   81.25 |       70 |     100 |   86.66 |                                         
+  logger.ts                |   81.25 |       70 |     100 |   86.66 | 12,14                                   
+---------------------------|---------|----------|---------|---------|-----------------------------------------
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       2 failed, 24 passed, 26 total
+Snapshots:   0 total
+Time:        1.624 s, estimated 2 s
+Ran all test suites.
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/nicolasmoreira/Desktop/ANTIGRAVITY - LAUNCHSIN/launchsin/workers
+npm error workspace launchsin-workers@0.1.0
+npm error location /Users/nicolasmoreira/Desktop/ANTIGRAVITY - LAUNCHSIN/launchsin/workers
+npm error command failed
+npm error command sh -c jest --coverage
