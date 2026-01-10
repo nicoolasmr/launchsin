@@ -31,7 +31,8 @@ router.post(
                 'GENERATE_FIX_PACK',
                 'VERIFY_TRACKING',
                 'TRIGGER_ALIGNMENT_CHECK',
-                'RESOLVE_ALERT'
+                'RESOLVE_ALERT',
+                'APPLY_FIX_GTM' // Phase C7: Auto-apply GTM
             ];
 
             if (!validActions.includes(action_type)) {
