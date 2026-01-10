@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/design-system/atoms/Card';
 import { Button } from '@/design-system/atoms/Button';
 import { Badge } from '@/design-system/atoms/Badge';
+import { PersonalizationModal } from '@/components/home/PersonalizationModal';
 
 interface OverviewData {
     total_projects: number;
@@ -39,6 +40,20 @@ interface RecentAction {
     created_at: string;
 }
 
+interface Prefs {
+    widget_visibility: {
+        kpi: boolean;
+        decisions: boolean;
+        alignment: boolean;
+        crm: boolean;
+        ops: boolean;
+        recent_actions: boolean;
+    };
+    widget_order: string[];
+    density: 'comfortable' | 'compact';
+    default_project_id: string | null;
+}
+
 export default function HomePage() {
     const [overview, setOverview] = useState<OverviewData | null>(null);
     const [decisions, setDecisions] = useState<Decision[]>([]);
@@ -47,10 +62,56 @@ export default function HomePage() {
     const [error, setError] = useState<string | null>(null);
     const [executingAction, setExecutingAction] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [prefs, setPrefs] = useState<Prefs | null>(null);
+    const [showPersonalization, setShowPersonalization] = useState(false);
 
     useEffect(() => {
         fetchData();
+        fetchPrefs();
     }, []);
+
+    const fetchPrefs = async () => {
+        try {
+            const res = await fetch('/api/home/prefs');
+            if (res.ok) {
+                const data = await res.json();
+                setPrefs(data.prefs);
+            }
+        } catch (err) {
+            console.error('Failed to fetch prefs:', err);
+            // Use defaults
+            setPrefs({
+                widget_visibility: {
+                    kpi: true,
+                    decisions: true,
+                    alignment: true,
+                    crm: true,
+                    ops: true,
+                    recent_actions: true
+                },
+                widget_order: ['kpi', 'decisions', 'alignment', 'crm', 'ops', 'recent_actions'],
+                density: 'comfortable',
+                default_project_id: null
+            });
+        }
+    };
+
+    const savePrefs = async (newPrefs: Prefs) => {
+        try {
+            const res = await fetch('/api/home/prefs', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prefs: newPrefs })
+            });
+
+            if (!res.ok) throw new Error('Failed to save preferences');
+
+            setPrefs(newPrefs);
+            setToast({ message: 'Preferências salvas com sucesso!', type: 'success' });
+        } catch (err: any) {
+            setToast({ message: err.message, type: 'error' });
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -176,6 +237,16 @@ export default function HomePage() {
 
     return (
         <div className="p-8 space-y-6">
+            {/* Personalization Modal */}
+            {prefs && (
+                <PersonalizationModal
+                    isOpen={showPersonalization}
+                    onClose={() => setShowPersonalization(false)}
+                    prefs={prefs}
+                    onSave={savePrefs}
+                />
+            )}
+
             {/* Toast Notification */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
@@ -194,9 +265,14 @@ export default function HomePage() {
                     <h1 className="text-3xl font-bold text-gray-900">Command Center</h1>
                     <p className="text-gray-600 mt-1">Your operational dashboard</p>
                 </div>
-                <Button onClick={fetchData} variant="secondary">
-                    🔄 Refresh
-                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={() => setShowPersonalization(true)} variant="secondary">
+                        ⚙️ Personalizar
+                    </Button>
+                    <Button onClick={fetchData} variant="secondary">
+                        🔄 Refresh
+                    </Button>
+                </div>
             </div>
 
             {/* KPI Cards */}

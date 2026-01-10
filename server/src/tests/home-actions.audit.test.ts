@@ -4,14 +4,14 @@ describe('Home Actions - Audit Tests', () => {
     describe('Metadata Redaction', () => {
         it('should redact API keys', () => {
             // Test metadata redaction logic
-            const metadata = {
+            const metadata: Record<string, any> = {
                 api_key: 'sk-1234567890',
                 page_url: 'https://example.com'
             };
 
             // Simulate redaction
             const forbiddenKeys = ['api_key', 'token', 'secret', 'password'];
-            const redacted = { ...metadata };
+            const redacted: Record<string, any> = { ...metadata };
 
             Object.keys(redacted).forEach(key => {
                 if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
@@ -24,13 +24,13 @@ describe('Home Actions - Audit Tests', () => {
         });
 
         it('should redact Bearer tokens', () => {
-            const metadata = {
+            const metadata: Record<string, any> = {
                 token: 'Bearer xyz123',
                 result: 'success'
             };
 
             const forbiddenKeys = ['api_key', 'token', 'secret', 'password'];
-            const redacted = { ...metadata };
+            const redacted: Record<string, any> = { ...metadata };
 
             Object.keys(redacted).forEach(key => {
                 if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
@@ -43,13 +43,13 @@ describe('Home Actions - Audit Tests', () => {
         });
 
         it('should redact sk- prefixed secrets', () => {
-            const metadata = {
+            const metadata: Record<string, any> = {
                 secret_key: 'sk-abcdef',
                 normal_field: 'value'
             };
 
             const forbiddenKeys = ['api_key', 'token', 'secret', 'password'];
-            const redacted = { ...metadata };
+            const redacted: Record<string, any> = { ...metadata };
 
             Object.keys(redacted).forEach(key => {
                 if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
@@ -69,14 +69,14 @@ describe('Home Actions - Audit Tests', () => {
         });
 
         it('should not redact safe fields', () => {
-            const metadata = {
+            const metadata: Record<string, any> = {
                 page_url: 'https://example.com',
                 alert_id: 'uuid-1234',
                 result: 'success'
             };
 
             const forbiddenKeys = ['api_key', 'token', 'secret', 'password'];
-            const redacted = { ...metadata };
+            const redacted: Record<string, any> = { ...metadata };
 
             Object.keys(redacted).forEach(key => {
                 if (forbiddenKeys.some(forbidden => key.toLowerCase().includes(forbidden))) {
@@ -102,4 +102,3 @@ describe('Home Actions - Audit Tests', () => {
         });
     });
 });
-

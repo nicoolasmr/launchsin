@@ -1,14 +1,14 @@
 -- ============================================================
--- Migration 0012: Audit Logs
+-- Migration 0012: Audit Logs (SIMPLIFIED)
 -- Sprint 2.6 PR #2 - Action Executor + Audit Trail
 -- ============================================================
 -- IDEMPOTENT: Safe to run multiple times
--- Dependencies: 0011_alignment_autofix_timeline_perf.sql
+-- NO DEPENDENCIES: Standalone table
 
 BEGIN;
 
 -- ============================================================
--- A) AUDIT_LOGS TABLE
+-- A) AUDIT_LOGS TABLE (NO FOREIGN KEYS)
 -- ============================================================
 -- Stores all user actions for compliance and debugging
 -- CRITICAL: metadata_json must NEVER contain secrets/tokens
@@ -16,10 +16,10 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS audit_logs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id uuid NOT NULL,
-    project_id uuid REFERENCES projects(id) ON DELETE CASCADE,
+    project_id uuid,
     
     -- Actor
-    actor_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+    actor_user_id uuid NOT NULL,
     
     -- Action details
     action_type text NOT NULL,
@@ -52,35 +52,22 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
     ON audit_logs(actor_user_id, created_at DESC);
 
 -- ============================================================
--- C) RLS POLICIES
+-- C) RLS POLICIES (SIMPLIFIED)
 -- ============================================================
 
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- SELECT: Project members can read (viewer+)
+-- SELECT: Allow all authenticated users to read their own actions
 DROP POLICY IF EXISTS audit_logs_select ON audit_logs;
 CREATE POLICY audit_logs_select ON audit_logs
     FOR SELECT
-    USING (
-        project_id IN (
-            SELECT pm.project_id 
-            FROM project_members pm 
-            WHERE pm.user_id = auth.uid()
-        )
-    );
+    USING (actor_user_id = auth.uid());
 
--- INSERT: Admin/Owner only (enforced in backend, but policy for safety)
+-- INSERT: Allow all authenticated users to insert
 DROP POLICY IF EXISTS audit_logs_insert ON audit_logs;
 CREATE POLICY audit_logs_insert ON audit_logs
     FOR INSERT
-    WITH CHECK (
-        project_id IN (
-            SELECT pm.project_id 
-            FROM project_members pm 
-            WHERE pm.user_id = auth.uid() 
-            AND pm.role IN ('admin', 'owner')
-        )
-    );
+    WITH CHECK (actor_user_id = auth.uid());
 
 -- UPDATE/DELETE: Blocked (audit logs are immutable)
 -- No policies = no one can update/delete
@@ -88,22 +75,10 @@ CREATE POLICY audit_logs_insert ON audit_logs
 COMMIT;
 
 -- ============================================================
--- VERIFICATION QUERIES
+-- NOTES
 -- ============================================================
--- Run these after migration to verify:
-
--- 1. Check table exists
--- SELECT COUNT(*) FROM audit_logs;
-
--- 2. Check indexes
--- SELECT indexname FROM pg_indexes 
--- WHERE tablename = 'audit_logs';
-
--- 3. Check RLS enabled
--- SELECT relname, relrowsecurity 
--- FROM pg_class 
--- WHERE relname = 'audit_logs';
-
--- 4. Test insert (as admin)
--- INSERT INTO audit_logs (org_id, actor_user_id, action_type, metadata_json)
--- VALUES ('org-uuid', auth.uid(), 'TEST_ACTION', '{"test": true}'::jsonb);
+-- This migration creates a standalone audit_logs table with:
+-- - NO foreign key constraints (to avoid dependency issues)
+-- - Simple RLS based on actor_user_id only
+-- - Backend will enforce additional RBAC and tenant scoping
+-- - org_id and project_id stored for filtering but not enforced by DB

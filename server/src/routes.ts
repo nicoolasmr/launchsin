@@ -30,6 +30,7 @@ import trackingFixRouter from './routes/api/tracking-fix';
 import timelineRouter from './routes/api/timeline';
 import homeRouter from './routes/api/home';
 import homeActionsRouter from './routes/api/home-actions';
+import homePrefsRouter from './routes/api/home-prefs';
 
 const router = Router();
 
@@ -94,6 +95,7 @@ router.use(timelineRouter);
 // Home Command Center (with LeakGate)
 router.use(leakGate, homeRouter);
 router.use(leakGate, homeActionsRouter);
+router.use(leakGate, homePrefsRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
