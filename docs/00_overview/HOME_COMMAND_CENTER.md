@@ -9,6 +9,27 @@ The Command Center is LaunchSin's operational dashboard that provides real-time 
 - **Action Executor**: One-click execution of fixes and checks
 - **Audit Trail**: Immutable log of all actions taken
 - **Real-time Updates**: Auto-refresh after actions
+- **Personalization**: User-specific widget visibility, layout, and density preferences
+
+---
+
+## Personalization
+
+Users can customize their Command Center with personal preferences.
+
+**Features**:
+- **Widget Visibility**: Toggle KPI, Decisions, Alignment, CRM, Ops, Recent Actions on/off
+- **Layout Order**: Reorder widgets with ↑↓ buttons
+- **Density**: Choose between Comfortable (more spacing) or Compact (more info)
+- **Privacy**: Self-only RLS (admins cannot see other users' preferences)
+
+**Access**: Click "⚙️ Personalizar" button in Home header
+
+**API**:
+- `GET /api/home/prefs`: Fetch user preferences (returns defaults if not set)
+- `PUT /api/home/prefs`: Save preferences (upsert with Zod validation)
+
+**See**: [HOME_PERSONALIZATION.md](../06_runbooks/HOME_PERSONALIZATION.md) for details
 
 ---
 
