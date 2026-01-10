@@ -1,6 +1,6 @@
 import { logger } from '../infra/structured-logger';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import { createHash } from 'crypto';
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
@@ -224,7 +224,7 @@ export class AlignmentWorkerV2 {
      * Compute SHA256 hash
      */
     private computeHash(content: string): string {
-        return crypto.createHash('sha256').update(content).digest('hex');
+        return createHash('sha256').update(content).digest('hex');
     }
 
     /**
