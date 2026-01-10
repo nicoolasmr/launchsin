@@ -8,6 +8,7 @@ const navigation = [
     { name: 'Campaigns', href: '/campaigns', icon: '📢' },
     { name: 'Analytics', href: '/analytics', icon: '📊' },
     { name: 'Integrations', href: '/integrations', icon: '🔌' },
+    { name: 'Ops', href: '/infra', icon: '🛠️' },
     { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 

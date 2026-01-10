@@ -52,8 +52,7 @@ export default function FixPacksPage({ params }: { params: { id: string } }) {
 
     const checkFeatureFlag = async () => {
         try {
-            // TODO: Fetch from feature flags API
-            // For now, check environment or default to false
+            // Feature flag check
             const enabled = process.env.NEXT_PUBLIC_AUTO_APPLY_V1 === 'true';
             setFeatureEnabled(enabled);
         } catch (error) {
