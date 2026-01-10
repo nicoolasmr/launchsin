@@ -12,6 +12,9 @@ interface OverviewData {
     alignment_summary: { avg_score: number; critical_count: number; warning_count: number; last_run_at: string | null } | null;
     crm_summary: { contacts_count: number; deals_count: number };
     ops_summary: { dlq_pending: number; alerts_open: number };
+    alignment_cache_hit_rate_24h: number;
+    llm_cost_today_usd: number;
+    llm_cost_7d_usd: number;
 }
 
 interface NextAction {
@@ -276,7 +279,7 @@ export default function HomePage() {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {/* Projects */}
                 <Card className="p-6">
                     <div className="text-sm text-gray-600 mb-1">Total Projects</div>
@@ -314,6 +317,28 @@ export default function HomePage() {
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
                         {overview?.ops_summary?.dlq_pending || 0} DLQ, {overview?.ops_summary?.alerts_open || 0} alerts
+                    </div>
+                </Card>
+
+                {/* LLM Cost Today */}
+                <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                    <div className="text-sm text-blue-700 mb-1">LLM $ Hoje</div>
+                    <div className="text-3xl font-bold text-blue-900">
+                        ${overview?.llm_cost_today_usd?.toFixed(2) || '0.00'}
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                        7d: ${overview?.llm_cost_7d_usd?.toFixed(2) || '0.00'}
+                    </div>
+                </Card>
+
+                {/* Cache Hit Rate 24h */}
+                <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100">
+                    <div className="text-sm text-green-700 mb-1">Cache Hit 24h</div>
+                    <div className="text-3xl font-bold text-green-900">
+                        {overview?.alignment_cache_hit_rate_24h?.toFixed(1) || '0.0'}%
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">
+                        Alignment jobs
                     </div>
                 </Card>
             </div>
