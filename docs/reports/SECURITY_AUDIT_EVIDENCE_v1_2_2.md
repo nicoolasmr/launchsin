@@ -2,14 +2,14 @@
 # Security Audit Evidence v1.2.2
 
 **Date**: 2026-01-10
-**Commit**: `edac7e78b221f5dd9b68e4d663d05b4b70372b97` (fix(security): safe buffer length check for oauth state HMAC)
+**Commit**: `6f37d5b7ddb3e312ff49c98197c67a5e12b220cc` (docs(audit): publish security audit v1.2.2 (evidence-aligned))
 
 ## 1. Commit & Git Status (Clean State)
 ```bash
 $ git rev-parse HEAD && git status
-edac7e78b221f5dd9b68e4d663d05b4b70372b97
+6f37d5b7ddb3e312ff49c98197c67a5e12b220cc
 On branch main
-Your branch is ahead of 'origin/main' by 3 commits.
+Your branch is ahead of 'origin/main' by 4 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
@@ -48,17 +48,21 @@ $ cd server && npm test -- --coverage
 PASS src/tests/cross-org-isolation.test.ts
 PASS src/tests/webhooks.hotmart.security.test.ts
 PASS src/tests/oauth-state.security.test.ts
-PASS src/tests/no-secrets-in-responses-alignment-v2.test.ts
 ...
 Test Suites: 24 passed, 24 total
 Tests:       129 passed, 129 total
 Snapshots:   0 total
-Time:        1.115 s
+Time:        0.962 s
 
 -----------------------------|---------|----------|---------|---------|-------------------
 File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 -----------------------------|---------|----------|---------|---------|-------------------
 All files                    |   56.27 |    37.31 |   48.48 |   58.44 |                   
+ src                         |     100 |      100 |     100 |     100 |                   
+  app.ts                     |     100 |      100 |     100 |     100 |                   
+  db.ts                      |     100 |       75 |     100 |     100 | 13                
+  metrics.ts                 |   58.06 |        0 |       0 |   58.06 | 96-142            
+  oauth-state.ts             |   92.85 |      100 |     100 |   92.85 | 69-70             
 ...
 -----------------------------|---------|----------|---------|---------|-------------------
 ```
@@ -69,13 +73,12 @@ $ cd workers && npm test -- --coverage
 ...
 PASS tests/alert-dedup.test.ts
 PASS tests/alignment-cache.test.ts
-PASS tests/scheduler-budget.test.ts
 PASS tests/alignment-locking-sim.test.ts
+PASS tests/scheduler-budget.test.ts
 PASS tests/scorer-fallback.test.ts
 ...
 Test Suites: 5 passed, 5 total
 Tests:       34 passed, 34 total
-Snapshots:   0 total
 ```
 
 **Coverage Summary (from json-summary):**
@@ -138,11 +141,12 @@ From `.github/workflows/ci.yml`:
 
 ### 5.2 Hotmart Webhook Verification
 - **Path**: `server/src/tests/webhooks.hotmart.security.test.ts`
-- **Result**: PASS (Verified `crypto.timingSafeEqual` for Hottok verification)
+- **Result**: PASS (Verified `X-Hotmart-Hottok` via `crypto.timingSafeEqual`)
 
 ### 5.3 OAuth State Security
 - **Path**: `server/src/tests/oauth-state.security.test.ts`
 - **Result**: PASS (Verified HMAC-SHA256 signature, length checks, and 15m TTL)
 
 ## 6. Notes
-- **Fix Applied**: `edac7e7` adds safe length check in `OAuthStateService` to prevent `RangeError` in timing-safe comparison.
+- **Fix Applied**: Buffer length check in `OAuthStateService` verified.
+- **Consistency**: All tests passing on commit `6f37d5b`.
