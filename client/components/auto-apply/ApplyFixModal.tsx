@@ -1,10 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 /**
@@ -72,36 +68,36 @@ export function ApplyFixModal({ isOpen, onClose, fixpackId, projectId }: ApplyFi
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Apply Fix to GTM</DialogTitle>
-                </DialogHeader>
+        <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+            <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+                <div className="mb-6">
+                    <h2 className="text-2xl font-bold">Apply Fix to GTM</h2>
+                </div>
 
                 <div className="space-y-6">
                     {/* E3: Target Selector */}
                     <div>
                         <label className="text-sm font-medium mb-2 block">Select Target</label>
-                        <Select value={selectedTarget} onValueChange={setSelectedTarget}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Choose GTM container" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {targets.map(target => (
-                                    <SelectItem key={target.id} value={target.id}>
-                                        {target.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <select
+                            value={selectedTarget}
+                            onChange={(e) => setSelectedTarget(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-md"
+                        >
+                            <option value="">Choose GTM container</option>
+                            {targets.map(target => (
+                                <option key={target.id} value={target.id}>
+                                    {target.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* E2: Dry-Run Preview */}
                     {dryRunResult && (
-                        <div className="border rounded-lg p-4 bg-muted/50">
+                        <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
                             <h3 className="font-medium mb-3 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                                Preview Changes
+                                ⚠️ Preview Changes
                             </h3>
                             <div className="space-y-2 text-sm">
                                 <div>
@@ -122,7 +118,7 @@ export function ApplyFixModal({ isOpen, onClose, fixpackId, projectId }: ApplyFi
                                         </ul>
                                     </div>
                                 )}
-                                <p className="text-muted-foreground mt-2">
+                                <p className="text-gray-600 dark:text-gray-400 mt-2">
                                     Estimated changes: <strong>{dryRunResult.diff.estimated_changes}</strong>
                                 </p>
                             </div>
@@ -131,34 +127,36 @@ export function ApplyFixModal({ isOpen, onClose, fixpackId, projectId }: ApplyFi
 
                     {/* E4: Status pós-apply */}
                     {applyStatus === 'success' && jobId && (
-                        <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
+                        <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
                             <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                <h3 className="font-medium text-green-600">Apply Successful!</h3>
+                                ✅ <h3 className="font-medium text-green-600">Apply Successful!</h3>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                                Job ID: <code className="bg-muted px-1 rounded">{jobId}</code>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                Job ID: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{jobId}</code>
                             </p>
                             <div className="flex gap-2">
-                                <Button size="sm" variant="outline" asChild>
-                                    <a href={`/projects/${projectId}/tracking/verify`}>
-                                        View Verification →
-                                    </a>
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={handleRollback}>
+                                <a
+                                    href={`/projects/${projectId}/tracking/verify`}
+                                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                                >
+                                    View Verification →
+                                </a>
+                                <button
+                                    onClick={handleRollback}
+                                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                                >
                                     Rollback
-                                </Button>
+                                </button>
                             </div>
                         </div>
                     )}
 
                     {applyStatus === 'error' && (
-                        <div className="border rounded-lg p-4 bg-red-50 dark:bg-red-950/20">
+                        <div className="border rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
                             <div className="flex items-center gap-2">
-                                <XCircle className="h-5 w-5 text-red-600" />
-                                <h3 className="font-medium text-red-600">Apply Failed</h3>
+                                ❌ <h3 className="font-medium text-red-600">Apply Failed</h3>
                             </div>
-                            <p className="text-sm text-muted-foreground mt-2">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                                 Please check the logs or try again.
                             </p>
                         </div>
@@ -166,54 +164,45 @@ export function ApplyFixModal({ isOpen, onClose, fixpackId, projectId }: ApplyFi
 
                     {/* Actions */}
                     <div className="flex gap-3 justify-end">
-                        <Button variant="outline" onClick={onClose}>
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
                             Cancel
-                        </Button>
+                        </button>
 
                         {!dryRunResult && (
-                            <Button
+                            <button
                                 onClick={handleDryRun}
                                 disabled={!selectedTarget || applyStatus === 'dry-run'}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {applyStatus === 'dry-run' ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Loading Preview...
-                                    </>
-                                ) : (
-                                    'Preview Changes'
-                                )}
-                            </Button>
+                                {applyStatus === 'dry-run' ? 'Loading Preview...' : 'Preview Changes'}
+                            </button>
                         )}
 
                         {dryRunResult && applyStatus !== 'success' && (
-                            <Button
+                            <button
                                 onClick={handleApply}
                                 disabled={applyStatus === 'applying'}
+                                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {applyStatus === 'applying' ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Applying...
-                                    </>
-                                ) : (
-                                    'Aplicar Agora'
-                                )}
-                            </Button>
+                                {applyStatus === 'applying' ? 'Applying...' : 'Aplicar Agora'}
+                            </button>
                         )}
                     </div>
 
                     {/* Feature Flag Notice */}
-                    <div className="text-xs text-muted-foreground border-t pt-3">
-                        <Badge variant="outline" className="text-xs">
+                    <div className="text-xs text-gray-500 border-t pt-3">
+                        <span className="inline-block px-2 py-1 text-xs border rounded mb-2">
                             Feature Flag: auto_apply_v1
-                        </Badge>
+                        </span>
                         <p className="mt-2">
                             This feature requires GTM OAuth configuration. Contact admin to enable.
                         </p>
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </div>
     );
 }

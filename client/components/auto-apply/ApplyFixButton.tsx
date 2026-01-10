@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Rocket } from 'lucide-react';
+import { ApplyFixModal } from '@/components/auto-apply/ApplyFixModal';
 import { ApplyFixModal } from '@/components/auto-apply/ApplyFixModal';
 
 /**
@@ -30,13 +29,12 @@ export function ApplyFixButton({ fixpackId, projectId, featureEnabled = false }:
 
     return (
         <>
-            <Button
+            <button
                 onClick={() => setIsModalOpen(true)}
-                className="gap-2"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-                <Rocket className="h-4 w-4" />
-                Apply Fix
-            </Button>
+                🚀 Apply Fix
+            </button>
 
             <ApplyFixModal
                 isOpen={isModalOpen}
