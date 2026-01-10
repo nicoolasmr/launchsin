@@ -104,8 +104,8 @@ export class AutoApplyWorker {
                 })
                 .eq('id', jobId);
 
-            // Metrics
-            autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'ok' });
+            // TODO: Metrics (requires metrics integration in workers)
+            // autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'ok' });
 
         } catch (error: any) {
             logger.error('APPLY_FIX failed', { jobId, error: error.message });
@@ -119,7 +119,8 @@ export class AutoApplyWorker {
                 })
                 .eq('id', jobId);
 
-            autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'error' });
+            // TODO: Metrics (requires metrics integration in workers)
+            // autoApplyJobsTotal.inc({ type: 'APPLY_FIX', result: 'error' });
         }
     }
 
@@ -155,9 +156,9 @@ export class AutoApplyWorker {
                 })
                 .eq('id', jobId);
 
-            // Metrics
-            autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'ok' });
-            autoApplyRollbacksTotal.inc();
+            // TODO: Metrics (requires metrics integration in workers)
+            // autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'ok' });
+            // autoApplyRollbacksTotal.inc();
 
         } catch (error: any) {
             logger.error('ROLLBACK_FIX failed', { jobId, error: error.message });
@@ -171,7 +172,8 @@ export class AutoApplyWorker {
                 })
                 .eq('id', jobId);
 
-            autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'error' });
+            // TODO: Metrics (requires metrics integration in workers)
+            // autoApplyJobsTotal.inc({ type: 'ROLLBACK_FIX', result: 'error' });
         }
     }
 
