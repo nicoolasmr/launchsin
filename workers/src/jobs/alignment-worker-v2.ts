@@ -300,3 +300,6 @@ export class AlignmentWorkerV2 {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
+
+// Export singleton instance
+export const alignmentWorkerV2 = new AlignmentWorkerV2();
