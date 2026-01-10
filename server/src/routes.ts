@@ -32,6 +32,7 @@ import homeRouter from './routes/api/home';
 import homeActionsRouter from './routes/api/home-actions';
 import homePrefsRouter from './routes/api/home-prefs';
 import metricsRouter from './routes/api/metrics';
+import autoApplyRouter from './routes/api/auto-apply';
 
 const router = Router();
 
@@ -100,6 +101,9 @@ router.use(leakGate, homePrefsRouter);
 
 // Metrics (no LeakGate - standard Prometheus endpoint)
 router.use(metricsRouter);
+
+// Auto-Apply (with LeakGate)
+router.use(leakGate, autoApplyRouter);
 
 // --- Projects ---
 router.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
