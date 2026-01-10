@@ -1,7 +1,5 @@
 import { logger } from '../infra/structured-logger';
 import { createClient } from '@supabase/supabase-js';
-import { GTMClient } from '../integrations/gtm-client';
-import { autoApplyJobsTotal, autoApplyRollbacksTotal } from '../infra/metrics';
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
