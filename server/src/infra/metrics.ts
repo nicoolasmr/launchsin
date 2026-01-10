@@ -63,6 +63,29 @@ export const auditLogsWritten = new Counter({
 });
 
 // ============================================================
+// AUTO-APPLY METRICS (Sprint 2.7)
+// ============================================================
+
+export const autoApplyJobsTotal = new Counter({
+    name: 'auto_apply_jobs_total',
+    help: 'Total number of auto-apply jobs processed',
+    labelNames: ['type', 'result'], // type: APPLY_FIX|ROLLBACK_FIX, result: ok|error
+    registers: [register]
+});
+
+export const autoApplyRollbacksTotal = new Counter({
+    name: 'auto_apply_rollbacks_total',
+    help: 'Total number of rollbacks executed',
+    registers: [register]
+});
+
+export const autoApplyVerifySuccessTotal = new Counter({
+    name: 'auto_apply_verify_success_total',
+    help: 'Total number of successful post-apply verifications',
+    registers: [register]
+});
+
+// ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 
