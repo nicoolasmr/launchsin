@@ -33,6 +33,7 @@ import homeActionsRouter from './routes/api/home-actions';
 import homePrefsRouter from './routes/api/home-prefs';
 import metricsRouter from './routes/api/metrics';
 import autoApplyRouter from './routes/api/auto-apply';
+import gtmOAuthRouter from './routes/api/gtm-oauth';
 
 const router = Router();
 

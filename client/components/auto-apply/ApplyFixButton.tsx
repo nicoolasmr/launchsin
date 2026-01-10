@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { ApplyFixModal } from '@/components/auto-apply/ApplyFixModal';
-import { ApplyFixModal } from '@/components/auto-apply/ApplyFixModal';
 
 /**
  * ApplyFixButton Component (Phase E1)
