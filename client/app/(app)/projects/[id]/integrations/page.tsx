@@ -16,7 +16,7 @@ import { CrmHub } from '@/components/integrations/CrmHub';
 type TabId = 'overview' | 'runs' | 'dlq' | 'alerts' | 'alignment' | 'crm' | 'settings';
 
 export default function StatusCenterPage() {
-    const { projectId } = useParams();
+    const { id: projectId } = useParams();
     const [activeTab, setActiveTab] = useState<TabId>('overview');
     const [isLoading, setIsLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
